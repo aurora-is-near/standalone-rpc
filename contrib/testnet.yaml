@@ -1,10 +1,10 @@
 ---
 port: 8545
-database: postgres://aurora:aurora@10.123.46.253/aurora
+database: postgres://aurora:aurora@10.123.45.253/aurora
 network: testnet
-endpoint: http://10.123.46.251:3030/
+endpoint: http://10.123.45.251:3030/
 engine: aurora
 signer: %%SIGNER%%
 signerKeys:
   - config/relayer.json
-writable: false 
+writable: false

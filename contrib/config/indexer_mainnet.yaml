@@ -1,0 +1,6 @@
+---
+database: postgres://aurora:aurora@10.123.45.253/aurora
+debug: true
+keepFiles: false
+sourceFolder: /refiner/borealis-engine-lib/output/refiner
+genesisBlock: 9820210

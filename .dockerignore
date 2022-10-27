@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+dist
+
+# Visual Studio Code
+.vscode/
+
+# IDEA
+.idea
+
+# Editor backup files
+*~
+
+# Node packages
+node_modules/
+
+# TypeDoc output
+docs/
+
+# Coverage
+coverage/
+
+# Local configuration
+config/local.yaml
+output
+near
+database

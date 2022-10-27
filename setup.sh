@@ -39,7 +39,7 @@ if [ ! -f ./near/validator_key.json ]; then
 	./contrib/nearkey node%."${namePostfix}" > ./near/validator_key.json
 fi
 
-if [ ! -f ./config/relayer.json ]; then 
+if [ ! -f ./config/relayer.json ]; then
 	echo Generating relayer key.
 	./contrib/nearkey relayer%."${namePostfix}" > ./config/relayer.json
 	relayerName=$(cat ./config/relayer.json | grep account_id | cut -d\" -f4)
@@ -63,20 +63,21 @@ if [ ! -f .latest ]; then
 fi
 latest=$(cat ".latest")
 
-if [ ! -f ./database/.version ]; then 
-        echo Downloading database snapshot ${latest} 
+if [ ! -f ./database/.version ]; then
+        echo Downloading database snapshot ${latest}
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
-                curl -sSf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/"${network}"-db-"${latest}"/data.tar?lastfile=$(tail -n1 "./database/.lastfile") | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
+                # curl -sSf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/"${network}"-db-"${latest}"/data.tar?lastfile=$(tail -n1 "./database/.lastfile") | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
+                curl -sSf https://spilin.s3.eu-west-1.amazonaws.com/database.tar | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
                 if [ -f ./database/.version ]; then
                         finish=1
                 fi
         done
 fi
 
-if [ ! -f ./near/data/CURRENT ]; then 
-        echo Downloading near chain snapshot 
+if [ ! -f ./near/data/CURRENT ]; then
+        echo Downloading near chain snapshot
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
@@ -89,6 +90,7 @@ fi
 cp ./contrib/docker-compose.yaml-"${network}" docker-compose.yaml
 cp ./contrib/start.sh start.sh
 cp ./contrib/stop.sh stop.sh
-rm setup.sh
+docker compose build --build-arg env=mainnet --no-cache
+# rm setup.sh
 echo Setup Complete
 ./start.sh

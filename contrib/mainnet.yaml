@@ -7,4 +7,4 @@ engine: aurora
 signer: %%SIGNER%%
 signerKeys:
   - config/relayer.json
-writable: false 
+writable: false

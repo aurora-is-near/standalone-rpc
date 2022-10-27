@@ -3,18 +3,21 @@ version: '3.8'
 services:
   database:
     container_name: mainnet_database
-    image: nearaurora/database-mainnet:latest
+    image: auroraisnear/relayer-database
+    build:
+      dockerfile: contrib/Dockerfile.database
     restart: unless-stopped
     ports:
-      - '127.0.0.1:15432:5432'
+      - '127.0.0.1:6432:5432'
     volumes:
       - ./database:/var/lib/postgresql/data
     networks:
       static-network:
         ipv4_address: 10.123.45.253
-  indexer:
-    container_name: mainnet_indexer
-    image: nearaurora/endpoint-mainnet:latest
+  endpoint:
+    image: auroraisnear/relayer-endpoint
+    build:
+      dockerfile: contrib/Dockerfile.endpoint
     restart: unless-stopped
     init: true
     depends_on:
@@ -22,47 +25,74 @@ services:
     environment:
       - NEAR_ENV=mainnet
       - NODE_ENV=mainnet
-    volumes:
-      - ./config:/srv/aurora/relayer/config
-    extra_hosts:
-      - host.docker.internal:host-gateway # See: https://stackoverflow.com/a/43541732
-    entrypoint: ["sh", "-c", "util/indexer/indexer | node lib/indexer_backend.js"]
+      - WAIT_HOSTS=database:5432
+      - WAIT_BEFORE=1
+    expose:
+      - '8545'
+    entrypoint: sh -c "/wait && node lib/index.js"
     networks:
       static-network:
-        ipv4_address: 10.123.45.252
-  nearcore:
-    container_name: mainnet_nearcore
-    image: nearaurora/nearcore-mainnet:latest
+  refiner:
+    container_name: "mainnet_refiner"
+    image: auroraisnear/relayer-refiner
+    build:
+      dockerfile: contrib/Dockerfile.refiner
     restart: unless-stopped
-    init: true
     depends_on:
       - indexer
-    expose:
-      - 3030
+    environment:
+      - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
+      - WAIT_HOSTS=database:5432
+      - WAIT_PATHS=/refiner/borealis-engine-lib/output/refiner/.REFINER_LAST_BLOCK
+      - WAIT_BEFORE=1
     volumes:
-      - ./near:/home/near
+      - ./output:/refiner/borealis-engine-lib/output # Output directory
+      - ./near:/refiner/borealis-engine-lib/nearcore # Path to Nearcore data
+    entrypoint: sh -c "/wait && cargo run --release -- -c ./config.json run"
+    ports:
+      - '127.0.0.1:3030:3030'
     networks:
       static-network:
         ipv4_address: 10.123.45.251
-  resilver:
-    container_name: mainnet_resilver
-    image: nearaurora/endpoint-mainnet:latest
-    restart: "no"
+  indexer:
+    container_name: mainnet_indexer
+    image: auroraisnear/relayer-indexer
+    build:
+      dockerfile: contrib/Dockerfile.indexer
+    restart: unless-stopped
     init: true
     depends_on:
       - database
-      - nearcore
     environment:
+      - WAIT_HOSTS=database:5432
+      - WAIT_BEFORE=1
       - NEAR_ENV=mainnet
       - NODE_ENV=mainnet
     volumes:
-      - ./config:/srv/aurora/relayer/config
-    extra_hosts:
-      - host.docker.internal:host-gateway 
-    entrypoint: ["sh", "-c", "/srv/aurora/relayer/util/update/update.sh"]      
+      - ./output:/refiner/borealis-engine-lib/output/ # Source (refiner output)
+    entrypoint: sh -c "/wait && ./indexer"
     networks:
       static-network:
-        ipv4_address: 10.123.45.250
+        ipv4_address: 10.123.45.252
+  # resilver:
+  #   container_name: mainnet_resilver
+  #   image: nearaurora/endpoint-mainnet:latest
+  #   restart: "no"
+  #   init: true
+  #   depends_on:
+  #     - database
+  #     - nearcore
+  #   environment:
+  #     - NEAR_ENV=mainnet
+  #     - NODE_ENV=mainnet
+  #   volumes:
+  #     - ./config:/srv/aurora/relayer/config
+  #   extra_hosts:
+  #     - host.docker.internal:host-gateway
+  #   entrypoint: ["sh", "-c", "/srv/aurora/relayer/util/update/update.sh"]
+  #   networks:
+  #     static-network:
+  #       ipv4_address: 10.123.45.250
   reverseproxy:
     container_name: reverseproxy
     image: nearaurora/reverseproxy:latest
@@ -72,39 +102,24 @@ services:
       - '80'
     ports:
       - '10080:80'  # Remove this line to prevent listening on public IP address.
-      #- '127.0.0.1:10080:80' # Remove the hashtag in the beginning of this line to enable listening on 127.0.0.1.
+      # - '127.0.0.1:10080:80' # Remove the hashtag in the beginning of this line to enable listening on 127.0.0.1.
     volumes:
       - ./contrib/nginx/mainnet:/config
     networks:
       static-network:
         ipv4_address: 10.123.45.249
-  endpoint:
-    image: nearaurora/endpoint-mainnet:latest
-    restart: unless-stopped
-    init: true
-    depends_on:
-      - database
-      - nearcore
-    environment:
-      - NEAR_ENV=mainnet
-      - NODE_ENV=mainnet
-    expose:
-      - '8545'
-    volumes:
-      - ./config:/srv/aurora/relayer/config
-    entrypoint: ["node", "lib/index.js"]
-    networks:
-      static-network:
-  watchtower:
-    container_name: watchtower
-    restart: unless-stopped
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./contrib/docker/config.json:/config.json
-    command: --interval 30
+  # watchtower:
+  #   container_name: watchtower
+  #   restart: unless-stopped
+  #   image: containrrr/watchtower
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./contrib/docker/config.json:/config.json
+  #   command: --interval 30
 networks:
   static-network:
     ipam:
       config:
          - subnet: 10.123.45.0/24
+volumes:
+  database:
