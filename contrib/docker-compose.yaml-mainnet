@@ -94,14 +94,14 @@ services:
     networks:
       static-network:
         ipv4_address: 10.123.45.249
-  # watchtower:
-  #   container_name: watchtower
-  #   restart: unless-stopped
-  #   image: containrrr/watchtower
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./contrib/docker/config.json:/config.json
-  #   command: --interval 30
+  watchtower:
+    container_name: watchtower
+    restart: unless-stopped
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./contrib/docker/config.json:/config.json
+    command: --interval 30
 networks:
   static-network:
     ipam:
