@@ -11,13 +11,14 @@ RUN mkdir -p /srv/aurora/.near-credentials/testnet
 RUN mkdir -p /srv/aurora/.near-credentials/betanet
 RUN ln -s testnet /srv/aurora/.near-credentials/default
 
-RUN mkdir -p /endpoint
-RUN chown -R node:node /endpoint
-WORKDIR /endpoint
-RUN git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git
-WORKDIR aurora-relayer
-COPY config/${env}.yaml config/mainnet.yaml
+RUN mkdir -p /srv/aurora/endpoint
+RUN chown -R node:node /srv/aurora/endpoint
+WORKDIR /srv/aurora/endpoint
+RUN git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git .
+RUN mkdir -p /srv/aurora/endpoint/config
 
-RUN npm ci --only=production
 COPY --chown=node:node . .
 EXPOSE 8545
+RUN cd /srv/aurora/endpoint && npm ci --only=production
+
+VOLUME /srv/aurora/endpoint/config

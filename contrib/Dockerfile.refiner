@@ -1,4 +1,4 @@
-FROM rust
+FROM rust as build
 
 ARG env=mainnet
 ARG source=nearcore
@@ -13,9 +13,13 @@ WORKDIR  /refiner
 RUN git clone https://github.com/aurora-is-near/borealis-engine-lib.git
 WORKDIR borealis-engine-lib
 RUN mkdir -p output/refiner
+RUN cargo build --release && echo OK
 
-RUN mkdir -p /root/.aws
-COPY contrib/credentials* /root/.aws/
-COPY contrib/config/refiner_${source}_${env}_config.json ./config.json
+FROM ubuntu:latest
 
-RUN cargo build --release
+COPY --from=build /refiner/borealis-engine-lib/target/release/aurora-refiner /usr/local/bin/
+
+RUN mkdir /config /data
+VOLUME /config
+VOLUME /data
+VOLUME /near

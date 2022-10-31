@@ -1,9 +1,13 @@
-FROM postgres:13.4-alpine
+FROM postgres:13.4-alpine as build
 
 RUN apk add --no-cache git make
-RUN mkdir -p /database
-WORKDIR /database
-RUN git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git
-RUN cp /database/aurora-relayer/docker/docker-entrypoint-initdb.d/init.* /docker-entrypoint-initdb.d/
+RUN mkdir -p /build
+WORKDIR /build
+RUN cd /build && git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git .
+
+FROM postgres:13.4-alpine
 
 ENV POSTGRES_PASSWORD postgres
+
+COPY --from=build /build/docker/docker-entrypoint-initdb.d/init.* /docker-entrypoint-initdb.d/
+

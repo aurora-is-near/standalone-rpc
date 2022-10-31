@@ -1,12 +1,7 @@
 #!/bin/sh
 
-network=${1:-"mainnet"}
+network="mainnet"
 namePostfix="near"
-
-if [ "${network}" = "testnet" ]; then
-	namePostfix="testnet"
-fi
-
 
 if [ ! -d ./contrib ]; then
 	echo "Run ./setup.sh from original git repository only!"
@@ -19,7 +14,7 @@ mkdir near/data 2> /dev/null
 
 if [ ! -f ./near/config.json ]; then
 	echo Downloading default configuration.
-	curl -sSf -o ./near/config.json https://files.deploy.aurora.dev/"${network}"/config.json
+	curl -sSf -o ./near/config.json https://files.deploy.aurora.dev/"${network}"-new/config.json
 fi
 
 if [ ! -f ./near/genesis.json ]; then
@@ -45,6 +40,18 @@ if [ ! -f ./config/relayer.json ]; then
 	relayerName=$(cat ./config/relayer.json | grep account_id | cut -d\" -f4)
 	sed "s/%%SIGNER%%/${relayerName}/" contrib/"${network}".yaml > ./config/"${network}".yaml
 fi
+if [ ! -f ./config/mainnet.yaml ]; then
+	cp ./contrib/config/mainnet_endpoint.yaml ./config/mainnet.yaml
+fi
+if [ ! -f ./config/indexer.yaml ]; then
+	cp ./contrib/config/mainnet_indexer.yaml ./config/indexer.yaml
+fi
+
+if [ ! -f ./config/refiner.json ]; then
+	cp ./contrib/config/mainnet_refiner.json ./config/refiner.json
+fi
+
+
 
 if [ ! -f ./config/blacklist.yaml ]; then
 	cp ./contrib/blacklist.yaml ./config/blacklist.yaml
@@ -58,7 +65,7 @@ fi
 latest=""
 if [ ! -f .latest ]; then
         echo Initial
-        latest=$(curl -sSf  https://snapshots.deploy.aurora.dev/snapshots/"${network}"-latest)
+        latest=$(curl -sSf  https://snapshots.deploy.aurora.dev/snapshots/"${network}"-new-latest)
         echo "${latest}" > ".latest"
 fi
 latest=$(cat ".latest")
@@ -68,8 +75,7 @@ if [ ! -f ./database/.version ]; then
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
-                # curl -sSf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/"${network}"-db-"${latest}"/data.tar?lastfile=$(tail -n1 "./database/.lastfile") | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
-                curl -sSf https://spilin.s3.eu-west-1.amazonaws.com/database.tar | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
+                curl -sSf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/"${network}"-new-db-"${latest}"/data.tar?lastfile=$(tail -n1 "./database/.lastfile") | tar -xv -C ./database/ >> ./database/.lastfile 2> /dev/null
                 if [ -f ./database/.version ]; then
                         finish=1
                 fi
@@ -78,10 +84,12 @@ fi
 
 if [ ! -f ./near/data/CURRENT ]; then
         echo Downloading near chain snapshot
+	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
+	s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/mainnet/archive/"${latest}"/* /near/data/
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
-                docker run --init --rm --name snapshot_downloader -v `pwd`/near/:/home/near:rw --entrypoint /usr/local/bin/download_snapshot.sh nearaurora/nearcore-"${network}":latest
+		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
                 if [ -f ./near/data/CURRENT ]; then
                         finish=1
                 fi
@@ -91,6 +99,6 @@ cp ./contrib/docker-compose.yaml-"${network}" docker-compose.yaml
 cp ./contrib/start.sh start.sh
 cp ./contrib/stop.sh stop.sh
 docker compose build --build-arg env=mainnet --no-cache
-rm setup.sh
+# rm setup.sh
 echo Setup Complete
 ./start.sh

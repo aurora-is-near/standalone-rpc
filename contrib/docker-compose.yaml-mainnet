@@ -3,9 +3,9 @@ version: '3.8'
 services:
   database:
     container_name: mainnet_database
-    image: auroraisnear/relayer-database
-    build:
-      dockerfile: contrib/Dockerfile.database
+    image: nearaurora/srpc-database
+#    build:
+#      dockerfile: contrib/Dockerfile.database
     restart: unless-stopped
     ports:
       - '127.0.0.1:6432:5432'
@@ -15,9 +15,9 @@ services:
       static-network:
         ipv4_address: 10.123.45.253
   endpoint:
-    image: auroraisnear/relayer-endpoint
-    build:
-      dockerfile: contrib/Dockerfile.endpoint
+    image: nearaurora/srpc-endpoint
+#    build:
+#      dockerfile: contrib/Dockerfile.endpoint
     restart: unless-stopped
     init: true
     depends_on:
@@ -25,30 +25,34 @@ services:
     environment:
       - NEAR_ENV=mainnet
       - NODE_ENV=mainnet
-      - WAIT_HOSTS=database:5432
+      - WAIT_HOSTS=10.123.45.253:5432
       - WAIT_BEFORE=1
     expose:
       - '8545'
-    entrypoint: sh -c "/wait && node lib/index.js"
+    volumes:
+      - ./config:/srv/aurora/endpoint/config # Must contain config file.
+    entrypoint: ["node","lib/index.js"]
     networks:
       static-network:
   refiner:
     container_name: "mainnet_refiner"
-    image: auroraisnear/relayer-refiner
-    build:
-      dockerfile: contrib/Dockerfile.refiner
+    image: nearaurora/srpc-refiner
+#    build:
+#      dockerfile: contrib/Dockerfile.refiner
     restart: unless-stopped
     depends_on:
       - indexer
     environment:
       - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
-      - WAIT_HOSTS=database:5432
-      - WAIT_PATHS=/refiner/borealis-engine-lib/output/refiner/.REFINER_LAST_BLOCK
+      - WAIT_HOSTS=10.123.45.253:5432
+      - WAIT_PATHS=/refiner/.REFINER_LAST_BLOCK
       - WAIT_BEFORE=1
+      - TZ=UTC0
     volumes:
-      - ./output:/refiner/borealis-engine-lib/output # Output directory
-      - ./near:/refiner/borealis-engine-lib/nearcore # Path to Nearcore data
-    entrypoint: sh -c "/wait && cargo run --release -- -c ./config.json run"
+      - ./config:/config # config files
+      - ./refiner:/data # Output directory
+      - ./near:/near # Path to Nearcore data
+    entrypoint: ["/usr/local/bin/aurora-refiner","-c","/config/refiner.json","run"]
     ports:
       - '127.0.0.1:3030:3030'
     networks:
@@ -56,9 +60,9 @@ services:
         ipv4_address: 10.123.45.251
   indexer:
     container_name: mainnet_indexer
-    image: auroraisnear/relayer-indexer
-    build:
-      dockerfile: contrib/Dockerfile.indexer
+    image: nearaurora/srpc-indexer
+ #   build:
+ #     dockerfile: contrib/Dockerfile.indexer
     restart: unless-stopped
     init: true
     depends_on:
@@ -69,30 +73,12 @@ services:
       - NEAR_ENV=mainnet
       - NODE_ENV=mainnet
     volumes:
-      - ./output:/refiner/borealis-engine-lib/output/ # Source (refiner output)
-    entrypoint: sh -c "/wait && ./indexer"
+      - ./config:/config/   # Refiner output
+      - ./refiner:/refiner/ # Source (refiner output)
+    entrypoint: ["/usr/local/bin/indexer","-c","/config/indexer.yaml","-s","/refiner"]
     networks:
       static-network:
         ipv4_address: 10.123.45.252
-  # resilver:
-  #   container_name: mainnet_resilver
-  #   image: nearaurora/endpoint-mainnet:latest
-  #   restart: "no"
-  #   init: true
-  #   depends_on:
-  #     - database
-  #     - nearcore
-  #   environment:
-  #     - NEAR_ENV=mainnet
-  #     - NODE_ENV=mainnet
-  #   volumes:
-  #     - ./config:/srv/aurora/relayer/config
-  #   extra_hosts:
-  #     - host.docker.internal:host-gateway
-  #   entrypoint: ["sh", "-c", "/srv/aurora/relayer/util/update/update.sh"]
-  #   networks:
-  #     static-network:
-  #       ipv4_address: 10.123.45.250
   reverseproxy:
     container_name: reverseproxy
     image: nearaurora/reverseproxy:latest

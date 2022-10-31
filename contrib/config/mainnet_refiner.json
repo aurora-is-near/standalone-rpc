@@ -1,0 +1,16 @@
+{
+    "refiner": {
+        "chain_id": 1313161554,
+        "engine_path": "/refiner/engine",
+        "engine_account_id": "aurora"
+    },
+    "input_mode": {
+        "Nearcore": {
+            "path": "/near"
+        }
+    },
+    "output_storage": {
+        "path": "/refiner",
+        "batch_size": 10000
+    }
+}
