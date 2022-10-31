@@ -85,7 +85,6 @@ fi
 if [ ! -f ./near/data/CURRENT ]; then
         echo Downloading near chain snapshot
 	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
-	s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/mainnet/archive/"${latest}"/* /near/data/
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
