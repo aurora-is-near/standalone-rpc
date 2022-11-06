@@ -97,7 +97,6 @@ fi
 cp ./contrib/docker-compose.yaml-"${network}" docker-compose.yaml
 cp ./contrib/start.sh start.sh
 cp ./contrib/stop.sh stop.sh
-docker compose build --build-arg env=mainnet --no-cache
 # rm setup.sh
 echo Setup Complete
 ./start.sh
