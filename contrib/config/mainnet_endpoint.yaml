@@ -4,6 +4,6 @@ database: postgres://aurora:aurora@10.123.45.253/aurora
 network: mainnet
 endpoint: https://archival-rpc.mainnet.near.org
 engine: aurora
-signer: relay.aurora
+signer: %%SIGNER%%
 signerKey:
 writable: true
