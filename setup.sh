@@ -11,6 +11,16 @@ fi
 mkdir near config database 2> /dev/null
 mkdir near/data 2> /dev/null
 
+if [ ! -f "./config/${network}.yaml" ]; then
+	cp "./contrib/config/${network}_endpoint.yaml" "./config/${network}.yaml"
+fi
+if [ ! -f ./config/indexer.yaml ]; then
+	cp "./contrib/config/${network}_indexer.yaml" ./config/indexer.yaml
+fi
+
+if [ ! -f ./config/refiner.json ]; then
+	cp "./contrib/config/${network}_refiner.json" ./config/refiner.json
+fi
 
 if [ ! -f ./near/config.json ]; then
 	echo Downloading default configuration.
@@ -40,16 +50,7 @@ if [ ! -f ./config/relayer.json ]; then
 	relayerName=$(cat ./config/relayer.json | grep account_id | cut -d\" -f4)
 	sed "s/%%SIGNER%%/${relayerName}/" contrib/"${network}".yaml > ./config/"${network}".yaml
 fi
-if [ ! -f ./config/mainnet.yaml ]; then
-	cp ./contrib/config/mainnet_endpoint.yaml ./config/mainnet.yaml
-fi
-if [ ! -f ./config/indexer.yaml ]; then
-	cp ./contrib/config/mainnet_indexer.yaml ./config/indexer.yaml
-fi
 
-if [ ! -f ./config/refiner.json ]; then
-	cp ./contrib/config/mainnet_refiner.json ./config/refiner.json
-fi
 
 
 
