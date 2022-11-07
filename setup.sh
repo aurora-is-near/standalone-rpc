@@ -48,7 +48,6 @@ if [ ! -f ./config/relayer.json ]; then
 	echo Generating relayer key.
 	./contrib/nearkey relayer%."${namePostfix}" > ./config/relayer.json
 	relayerName=$(cat ./config/relayer.json | grep account_id | cut -d\" -f4)
-	#sed "s/%%SIGNER%%/${relayerName}/" contrib/"${network}".yaml > ./config/"${network}".yaml
 	sed "s/%%SIGNER%%/${relayerName}/" ./config/"${network}".yaml > ./config/"${network}".yaml2 && cp ./config/"${network}".yaml2 ./config/"${network}".yaml
 fi
 
