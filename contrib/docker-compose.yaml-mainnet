@@ -50,6 +50,7 @@ services:
       - TZ=UTC0
     volumes:
       - ./config:/config # config files
+      - ./engine:/engine # Output directory      
       - ./refiner:/data # Output directory
       - ./near:/near # Path to Nearcore data
     entrypoint: ["/usr/local/bin/aurora-refiner","-c","/config/refiner.json","run"]
