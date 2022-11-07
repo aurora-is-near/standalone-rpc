@@ -11,6 +11,6 @@
     },
     "output_storage": {
         "path": "/data",
-        "batch_size": 10
+        "batch_size": 10000
     }
 }
