@@ -29,7 +29,7 @@ fi
 
 if [ ! -f ./near/genesis.json ]; then
 	echo Downloading genesis file.
-	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"/genesis.json.gz
+	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"-new/genesis.json.gz
 	echo Uncompressing genesis file.
 	gzip -d ./near/genesis.json.gz
 fi
