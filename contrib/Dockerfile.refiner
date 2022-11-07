@@ -12,6 +12,7 @@ RUN mkdir -p /refiner
 WORKDIR  /refiner
 RUN git clone https://github.com/aurora-is-near/borealis-engine-lib.git
 WORKDIR borealis-engine-lib
+RUN git checkout 142ca1ef7dcb9ebccbf949358e7036bb83e1f858
 RUN mkdir -p output/refiner
 RUN cargo build --release && echo OK
 
