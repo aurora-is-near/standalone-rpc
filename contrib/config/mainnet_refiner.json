@@ -1,7 +1,7 @@
 {
     "refiner": {
         "chain_id": 1313161554,
-        "engine_path": "/refiner/engine",
+        "engine_path": "/engine",
         "engine_account_id": "aurora"
     },
     "input_mode": {
@@ -10,7 +10,7 @@
         }
     },
     "output_storage": {
-        "path": "/refiner",
-        "batch_size": 10000
+        "path": "/data",
+        "batch_size": 10
     }
 }
