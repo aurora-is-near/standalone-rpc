@@ -63,6 +63,19 @@ if [ -f ./near/data/CURRENT -a -f ./database/.version ]; then
 fi
 
 
+if [ ! -f ./near/data/CURRENT ]; then
+        echo Downloading near chain snapshot
+	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
+        finish=0
+        while [ ${finish} -eq 0 ]; do
+                echo Fetching... this can take some time...
+		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
+                if [ -f ./near/data/CURRENT ]; then
+                        finish=1
+                fi
+        done
+fi
+
 latest=""
 if [ ! -f .latest ]; then
         echo Initial
@@ -83,18 +96,6 @@ if [ ! -f ./database/.version ]; then
         done
 fi
 
-if [ ! -f ./near/data/CURRENT ]; then
-        echo Downloading near chain snapshot
-	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
-        finish=0
-        while [ ${finish} -eq 0 ]; do
-                echo Fetching... this can take some time...
-		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
-                if [ -f ./near/data/CURRENT ]; then
-                        finish=1
-                fi
-        done
-fi
 cp ./contrib/docker-compose.yaml-"${network}" docker-compose.yaml
 cp ./contrib/start.sh start.sh
 cp ./contrib/stop.sh stop.sh
