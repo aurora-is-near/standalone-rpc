@@ -11,6 +11,16 @@ fi
 mkdir near config database 2> /dev/null
 mkdir near/data 2> /dev/null
 
+if [ ! -f "./config/${network}.yaml" ]; then
+	cp "./contrib/config/${network}_endpoint.yaml" "./config/${network}.yaml"
+fi
+if [ ! -f ./config/indexer.yaml ]; then
+	cp "./contrib/config/${network}_indexer.yaml" ./config/indexer.yaml
+fi
+
+if [ ! -f ./config/refiner.json ]; then
+	cp "./contrib/config/${network}_refiner.json" ./config/refiner.json
+fi
 
 if [ ! -f ./near/config.json ]; then
 	echo Downloading default configuration.
@@ -19,7 +29,7 @@ fi
 
 if [ ! -f ./near/genesis.json ]; then
 	echo Downloading genesis file.
-	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"/genesis.json.gz
+	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"-new/genesis.json.gz
 	echo Uncompressing genesis file.
 	gzip -d ./near/genesis.json.gz
 fi
@@ -38,18 +48,9 @@ if [ ! -f ./config/relayer.json ]; then
 	echo Generating relayer key.
 	./contrib/nearkey relayer%."${namePostfix}" > ./config/relayer.json
 	relayerName=$(cat ./config/relayer.json | grep account_id | cut -d\" -f4)
-	sed "s/%%SIGNER%%/${relayerName}/" contrib/"${network}".yaml > ./config/"${network}".yaml
-fi
-if [ ! -f ./config/mainnet.yaml ]; then
-	cp ./contrib/config/mainnet_endpoint.yaml ./config/mainnet.yaml
-fi
-if [ ! -f ./config/indexer.yaml ]; then
-	cp ./contrib/config/mainnet_indexer.yaml ./config/indexer.yaml
+	sed "s/%%SIGNER%%/${relayerName}/" ./config/"${network}".yaml > ./config/"${network}".yaml2 && cp ./config/"${network}".yaml2 ./config/"${network}".yaml
 fi
 
-if [ ! -f ./config/refiner.json ]; then
-	cp ./contrib/config/mainnet_refiner.json ./config/refiner.json
-fi
 
 
 
@@ -61,6 +62,19 @@ if [ -f ./near/data/CURRENT -a -f ./database/.version ]; then
         echo Setup complete
 fi
 
+
+if [ ! -f ./near/data/CURRENT ]; then
+        echo Downloading near chain snapshot
+	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
+        finish=0
+        while [ ${finish} -eq 0 ]; do
+                echo Fetching... this can take some time...
+		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
+                if [ -f ./near/data/CURRENT ]; then
+                        finish=1
+                fi
+        done
+fi
 
 latest=""
 if [ ! -f .latest ]; then
@@ -82,22 +96,9 @@ if [ ! -f ./database/.version ]; then
         done
 fi
 
-if [ ! -f ./near/data/CURRENT ]; then
-        echo Downloading near chain snapshot
-	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
-        finish=0
-        while [ ${finish} -eq 0 ]; do
-                echo Fetching... this can take some time...
-		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
-                if [ -f ./near/data/CURRENT ]; then
-                        finish=1
-                fi
-        done
-fi
 cp ./contrib/docker-compose.yaml-"${network}" docker-compose.yaml
 cp ./contrib/start.sh start.sh
 cp ./contrib/stop.sh stop.sh
-docker compose build --build-arg env=mainnet --no-cache
 # rm setup.sh
 echo Setup Complete
 ./start.sh
