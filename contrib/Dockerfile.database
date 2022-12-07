@@ -1,9 +1,11 @@
 FROM postgres:13.4-alpine as build
 
+ARG RELAYERVERSION="5f314c0"
+
 RUN apk add --no-cache git make
 RUN mkdir -p /build
 WORKDIR /build
-RUN cd /build && git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git .
+RUN cd /build && git clone -b indexer https://github.com/aurora-is-near/aurora-relayer.git . && git checkout "${RELAYERVERSION}"
 
 FROM postgres:13.4-alpine
 
