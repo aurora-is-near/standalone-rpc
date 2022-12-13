@@ -24,12 +24,12 @@ fi
 
 if [ ! -f ./near/config.json ]; then
 	echo Downloading default configuration.
-	curl -sSf -o ./near/config.json https://files.deploy.aurora.dev/"${network}"-new/config.json
+	curl -sSf -o ./near/config.json https://files.deploy.aurora.dev/"${network}"-new-rpc/config.json
 fi
 
 if [ ! -f ./near/genesis.json ]; then
 	echo Downloading genesis file.
-	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"-new/genesis.json.gz
+	curl -sSf -o ./near/genesis.json.gz https://files.deploy.aurora.dev/"${network}"-new-rpc/genesis.json.gz
 	echo Uncompressing genesis file.
 	gzip -d ./near/genesis.json.gz
 fi
@@ -65,11 +65,11 @@ fi
 
 if [ ! -f ./near/data/CURRENT ]; then
         echo Downloading near chain snapshot
-	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/archive/latest")
+	latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc-indexer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/rpc/latest")
         finish=0
         while [ ${finish} -eq 0 ]; do
                 echo Fetching... this can take some time...
-		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/archive/"${latest}"/* /near/data/"
+		docker run --rm --name near_downloader -v `pwd`/near/:/near:rw --entrypoint /bin/sh nearaurora/srpc-indexer -c "s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/rpc/"${latest}"/* /near/data/"
                 if [ -f ./near/data/CURRENT ]; then
                         finish=1
                 fi
