@@ -95,6 +95,23 @@ services:
     networks:
       static-network:
         ipv4_address: 10.123.45.249
+  dbupdate:
+    container_name: mainnet_dbupdate
+    image: dockerreg.internal.aurora.dev/relayer-endpoint-dev:latest
+    restart: "no"
+    init: true
+    depends_on:
+      - database
+    environment:
+      - NEAR_ENV=mainnet
+      - NODE_ENV=mainnet
+    volumes:
+      - /var/aurora/mainnet/config-endpoint:/srv/aurora/relayer/config
+    extra_hosts:
+      - host.docker.internal:host-gateway 
+    entrypoint: ["sh", "-c", "/srv/aurora/relayer/util/update/update.sh"]     
+    networks:
+      static-network:        
   watchtower:
     container_name: watchtower
     restart: unless-stopped
