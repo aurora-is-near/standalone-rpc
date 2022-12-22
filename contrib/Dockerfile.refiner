@@ -20,6 +20,9 @@ FROM ubuntu:latest
 
 COPY --from=build /refiner/borealis-engine-lib/target/release/aurora-refiner /usr/local/bin/
 
+RUN apt update
+RUN apt install ca-certificates -y
+
 RUN mkdir /config /data
 VOLUME /config
 VOLUME /data
