@@ -97,7 +97,7 @@ services:
         ipv4_address: 10.123.45.249
   dbupdate:
     container_name: mainnet_dbupdate
-    image: dockerreg.internal.aurora.dev/relayer-endpoint-dev:latest
+    image: nearaurora/relayer-endpoint-dev:latest
     restart: "no"
     init: true
     depends_on:
