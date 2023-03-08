@@ -2,11 +2,12 @@
     "refiner": {
         "chain_id": 1313161554,
         "engine_path": "/engine",
+        "tx_tracker_path": "/engine/tx_tracker",
         "engine_account_id": "aurora"
     },
     "input_mode": {
-        "Nearcore": {
-            "path": "/near"
+        "DataLake": {
+            "network": "Mainnet"
         }
     },
     "output_storage": {

@@ -22,10 +22,9 @@ docs/
 coverage/
 
 # Local configuration
+/relayer2
+/srpc2
 /output
-near
-database
+
 .latest
-./start.sh
-./stop.sh
-/config
+
