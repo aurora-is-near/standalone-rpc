@@ -25,4 +25,4 @@ coverage/
 config/local.yaml
 output
 near
-database
+data

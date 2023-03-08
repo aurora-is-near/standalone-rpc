@@ -1,0 +1,35 @@
+FROM rust as build
+
+ARG ENV=mainnet
+ARG SOURCE=nearcore
+
+ARG VERSION
+ARG BUILD_ID
+ARG STAGE
+
+LABEL stage="$STAGE"
+LABEL build="$BUILD_ID"
+
+RUN apt update && apt install make pkg-config libssl-dev clang -y  \
+    && mkdir -p /src && cd /src  \
+    && git clone https://github.com/aurora-is-near/borealis-engine-lib.git .  \
+    && git checkout "$VERSION"  \
+    && mkdir -p output/refiner  \
+    && cargo build --release
+
+FROM ubuntu:latest
+
+COPY --from=build /src/target/release/aurora-refiner /usr/local/bin/
+COPY refiner.sh /docker-entrypoint.sh
+
+RUN apt update  \
+    && apt install ca-certificates curl jq -y \
+    && mkdir -p /config /engine /near /data /log
+
+VOLUME /config
+VOLUME /engine
+VOLUME /near
+VOLUME /data
+VOLUME /log
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

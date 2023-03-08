@@ -1,0 +1,17 @@
+{
+    "refiner": {
+        "chain_id": 1313161555,
+        "engine_path": "/engine",
+        "tx_tracker_path": "/engine/tx_tracker",
+        "engine_account_id": "aurora"
+    },
+    "input_mode": {
+        "DataLake": {
+            "network": "Mainnet"
+        }
+    },
+    "output_storage": {
+        "path": "/data",
+        "batch_size": 10000
+    }
+}

@@ -1,0 +1,85 @@
+logger:
+  level: info
+  filePath: /log/relayer.log
+  logToConsole: false
+  logToFile: true
+db:
+  badger:
+    core:
+      gcIntervalSeconds: 10
+      scanRangeThreshold: 2000
+      maxScanIterators: 10000
+      filterTtlMinutes: 15
+      options:
+        Dir: /data/relayer
+        ValueDir: /data/relayer
+        InMemory: false
+        DetectConflicts: false
+endpoint:
+  chainId: 1313161554
+  filterFilePath: /config/filter.yaml
+  engine:
+    nearNetworkID: mainnet
+    nearNodeURL: https://archival-rpc.mainnet.near.org
+    signer: %%SIGNER%%
+    signerKey: /config/relayer.json
+    asyncSendRawTxs: true
+    minGasPrice: 0
+    minGasLimit: 21000
+    gasForNearTxsCall: 300000000000000
+    depositForNearTxsCall: 0
+    retryWaitTimeMsForNearTxsCall: 3000
+    retryNumberForNearTxsCall: 3
+  eth:
+    protocolVersion: 0x41
+    hashrate: 0
+    gasEstimate: 0x6691b7
+    gasPrice: 0x0
+  proxyEndpoints:
+    url: "https://mainnet.aurora.dev:443"
+    endpoints:
+      - eth_estimateGas
+      - debug_traceTransaction
+  disabledEndpoints:
+    -
+rpcNode:
+  geth:
+    HTTPHost: 0.0.0.0
+    HTTPPort: 8545
+    HTTPVirtualHosts:
+      - localhost
+    HTTPModules:
+      - "net"
+      - "web3"
+      - "eth"
+      - "parity"
+    WSHost: 0.0.0.0
+    WSPort: 8545
+    WSModules:
+      - "net"
+      - "web3"
+      - "eth"
+      - "parity"
+indexer:
+  sourceFolder: /data/refiner/
+  subFolderBatchSize: 10000   # should match with Aurora refiner batch size, see https://github.com/aurora-is-near/borealis-engine-lib
+  keepFiles: true
+  genesisBlock: 37157758      # 37157758 = Aurora Genesis
+  fromBlock: 37157758         # cannot be lower than Genesis
+  toBlock: 0                  # 0 = indefinite
+  retryCountOnFailure: 10
+  waitForBlockMs: 500
+backupIndexer:
+  indexFromBackup: false
+  backupDir: /data/backup/v2_mainnet_aurora_blocks
+  backupNamePrefix: v2_mainnet_aurora_blocks_
+  from: 0
+prehistoryIndexer:
+  indexFromPrehistory: false
+  prehistoryHeight: 37157758
+  from: 0
+  to: 37157757               # cannot be higher than prehistoryHeight
+  batchSize: 10000
+  prehistoryChainId: 1313161554
+  archiveURL: "postgres://public_readonly:nearprotocol@104.199.89.51/mainnet_explorer"
+
