@@ -39,7 +39,7 @@ services:
     volumes:
       - ./config/refiner:/config # config files
       - ./data/refiner:/data # Output directory
-      - /home/${SUDO_USER:-${USER}}/.aws/credentials:/root/.aws/credentials:ro
+      - "%%AWS%%:/root/.aws/credentials:ro"
     logging:
       driver: "json-file"
       options:

@@ -20,12 +20,15 @@ LABEL build="$BUILD_ID"
 #    && eval $(ssh-agent -s) && ssh-add /root/.ssh/id_docker_build
 
 RUN apk add --no-cache git  \
-    && mkdir /src && cd /src  \
+    && mkdir /src && mkdir /src/nearkey && cd /src  \
     && apk add --no-cache make  \
     && git clone https://github.com/aurora-is-near/relayer2-public.git && cd relayer2-public  \
     && git checkout "$VERSION" && make  \
     && cd ../ && git clone https://github.com/peak/s5cmd.git && cd s5cmd  \
     && go build -o s5cmd
+
+COPY nearkey.go /src/nearkey/nearkey.go
+RUN cd /src/nearkey && go build nearkey.go
 
 # for private repo
 #RUN rm -r /root/.ssh && rm /root/.gitconfig
@@ -35,6 +38,7 @@ FROM alpine
 COPY --from=build /src/relayer2-public/out/build.info /version
 COPY --from=build /src/relayer2-public/out/relayer /usr/local/bin/
 COPY --from=build /src/s5cmd/s5cmd /usr/local/bin/
+COPY --from=build /src/nearkey/nearkey /usr/local/bin/
 
 RUN mkdir -p /config /data/relayer /data/refiner /near /log
 VOLUME /config

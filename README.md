@@ -30,11 +30,16 @@ Usage: install.sh [options]
 Options
  -n {mainnet|testnet}	network to use, default is mainnet.
  -r {nearcore|datalake}	near source for indexing, default is nearcore.
+ -w {number [1-256]}	number of workers used for downloading near snapshots, default is 256.
+			NOTE: On some OS and HW configurations, default number of workers may cause high CPU consumption during download.
  -s			if specified then snapshots are ignored during installation, default downloads and uses snapshots.
 			NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option
 			if near source is selected as datalake otherwise refiner will not be sync with near core from scratch.
-Example
-./install.sh -n mainnet -r datalake -s
+ -h			prints usage
+			
+Examples
+ ./install.sh -n mainnet -r datalake -s
+ AWS_SHARED_CREDENTIALS_FILE=~/.aws/credentials ./install.sh -r datalake -s
 ```
 
 ## How to Stop & Start
@@ -66,7 +71,7 @@ further customizations. To enable write transactions with your account, you need
 * Change the `signer` value in the `srpc2/config/relayer/relayer.yaml` to the account's name.
 * Restart standalone-rpc.
 
-## Good to Know
+## Good to Know 
 * [Aurora Relayer2] configuration can be changed from `srpc2/config/relayer/relayer.yaml`. Some configuration changes can be applied without requiring a restart, please see repository page for more details about configuration.
 * standalone-rpc uses [Nginx] as a reverse-proxy before [Aurora Relayer2] RPC endpoints. To change [Nginx] configuration, edit the config file `srpc2/config/nginx/endpoint.conf`, and restart standalone-rpc
 

@@ -6,6 +6,7 @@ near_postfix="near"
 network="mainnet"
 near_source="nearcore" # nearcore or datalake
 use_snapshots=1
+download_workers=256
 
 trap "echo Exited!; exit 2;" INT TERM
 
@@ -30,7 +31,7 @@ install() {
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
     echo "Generating relayer key..."
-    ./${src_dir}/bin/nearkey relayer%."${near_postfix}" > "${INSTALL_DIR}/config/relayer/relayer.json"
+    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey relayer%.${near_postfix} > /config/relayer.json"
     relayerName=$(cat "${INSTALL_DIR}/config/relayer/relayer.json" | grep account_id | cut -d\" -f4)
     sed "s/%%SIGNER%%/${relayerName}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
     mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
@@ -61,15 +62,15 @@ install() {
     fi
     if [ ! -f "${INSTALL_DIR}/near/node_key.json" ]; then
       echo "Generating node_key..."
-      ./${src_dir}/bin/nearkey node%."${near_postfix}" > "${INSTALL_DIR}/near/node_key.json"
+      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/node_key.json"
     fi
     if [ ! -f "${INSTALL_DIR}/near/validator_key.json" ]; then
       echo "Generating validator_key..."
-      ./${src_dir}/bin/nearkey node%."${near_postfix}" > "${INSTALL_DIR}/near/validator_key.json"
+      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/validator_key.json"
     fi
     if [ $use_snapshots -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
       echo "Downloading near chain snapshot..."
-      latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --no-sign-request cat s3://near-protocol-public/backups/${network}/rpc/latest")
+      latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --no-sign-request --numworkers $download_workers cat s3://near-protocol-public/backups/${network}/rpc/latest")
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
@@ -79,12 +80,20 @@ install() {
         fi
       done
     fi
+    cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
   elif [ ${near_source} = "datalake" ]; then
-    if [ ! -f "/home/${SUDO_USER:-${USER}}/.aws/credentials" ]; then
-      echo "Installation failed, datalake config requires AWS account." \
-           "Create /home/${SUDO_USER:-${USER}}/.aws/credentials file and run install script again!"
+    if [ "x$AWS_SHARED_CREDENTIALS_FILE" = "x" ]; then
+      echo "Installation failed, environment variable AWS_SHARED_CREDENTIALS_FILE is needed for datalake config." \
+           "Please set environment variable AWS_SHARED_CREDENTIALS_FILE for [$USER] user or run installer as 'AWS_SHARED_CREDENTIALS_FILE={path to AWS credentials file} ./install.sh'"
+      echo "For more details, also see https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html"
       exit 1
     fi
+    if [ ! -f "$AWS_SHARED_CREDENTIALS_FILE" ]; then
+      echo "Installation failed, datalake config requires AWS account." \
+           "Create [$AWS_SHARED_CREDENTIALS_FILE] file and run install script again!"
+      exit 1
+    fi
+    sed "s|%%AWS%%|${AWS_SHARED_CREDENTIALS_FILE}|" "./${src_dir}/config/docker/${network}_${near_source}.yaml" > "${INSTALL_DIR}/docker-compose.yaml"
   else
     echo "Installation failed, invalid near data source. It should either be 'datalake' or 'nearcore' !"
     exit 1
@@ -104,7 +113,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -sSf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/mainnet-relayer2-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/mainnet-relayer2-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
           finish=1
         fi
@@ -118,7 +127,6 @@ install() {
     echo "Setup complete [${network}, ${near_source}]"
   fi
 
-  cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
   cp "./${src_dir}/bin/start.sh" "${INSTALL_DIR}/start.sh"
   cp "./${src_dir}/bin/stop.sh" "${INSTALL_DIR}/stop.sh"
   cp "./${src_dir}/bin/common.sh" "${INSTALL_DIR}/common.sh"
@@ -132,13 +140,16 @@ usage() {
   printf '\nOptions\n'
   printf ' %s\t%s\n' "-n {mainnet|testnet}" "network to use, default is mainnet."
   printf ' %s\t%s\n' "-r {nearcore|datalake}" "near source for indexing, default is nearcore."
+  printf ' %s\t%s\n\t\t\t%s\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
+  "NOTE: On some OS and HW configurations, default number of workers may cause high CPU consumption during download."
   printf ' %s\t\t\t%s\n\t\t\t%s\n\t\t\t%s\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
   "NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option" \
   "if near source is selected as datalake otherwise refiner will not be sync with near core from scratch."
+  printf ' %s\t\t\t%s\n\t\t\t%s\n' "-h" "prints usage"
   printf 'Example\n%s\n\n' "./install.sh -n mainnet -r datalake -s"
 }
 
-while getopts ":n:r:s" opt; do
+while getopts ":n:r:w:sh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
@@ -156,8 +167,20 @@ while getopts ":n:r:s" opt; do
         exit 1
       fi
       ;;
+    w)
+      download_workers="${OPTARG}"
+      if [ "$download_workers" -lt 1 ] || [ "$download_workers" -gt 256 ]; then
+        echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
+        usage
+        exit 1
+      fi
+      ;;
     s)
       use_snapshots=0
+      ;;
+    h)
+      usage
+      exit 0
       ;;
     \?)
       echo "Invalid Option: -${OPTARG}" 1>&2
