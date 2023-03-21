@@ -7,6 +7,8 @@ network="mainnet"
 near_source="nearcore" # nearcore or datalake
 use_snapshots=1
 
+trap "echo Exited!; exit 2;" INT TERM
+
 if [ ! -d "./${src_dir}" ]; then
 	echo "Run ./install.sh from original git repository only!"
 	exit 1
