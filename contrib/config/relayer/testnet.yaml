@@ -1,8 +1,8 @@
 logger:
   level: info
   filePath: /log/relayer.log
-  logToConsole: false
-  logToFile: true
+  logToConsole: true
+  logToFile: false
 db:
   badger:
     core:

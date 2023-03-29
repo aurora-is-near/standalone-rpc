@@ -4,8 +4,10 @@ Standalone Aurora Relayer and Refiner
 ## Prerequisites and Dependencies
 * x64-64 architecture
 * requires [Curl]
-* requires [Docker] and [Docker-Compose]
+* requires [Docker], recommended versions;
+  * Docker Engine v20.10.18 and above
 * optional [AWS Account], if near datalake on AWS S3 to be used
+* optional Near Account, for [Write Transactions & Custom Signers]
 * depends on [Aurora Relayer2], Web3-compatible relayer server for Aurora
 * depends on [Aurora Refiner], allows users to download all NEAR Blocks and get all information relevant to Aurora
 
@@ -75,6 +77,31 @@ further customizations. To enable write transactions with your account, you need
 * [Aurora Relayer2] configuration can be changed from `srpc2/config/relayer/relayer.yaml`. Some configuration changes can be applied without requiring a restart, please see repository page for more details about configuration.
 * standalone-rpc uses [Nginx] as a reverse-proxy before [Aurora Relayer2] RPC endpoints. To change [Nginx] configuration, edit the config file `srpc2/config/nginx/endpoint.conf`, and restart standalone-rpc
 
+## Migration
+### from v2.0.2 to v2.1.0
+For those who already have a running Aurora Standalone RPC with version `v2.0.2`, the existing Near Data can be reused. 
+Meaning that, installer can skip the time-consuming Near Snapshot download step and use the Near Data of existing installation.
+Follow the below steps, if you prefer the reuse existing Near Data.
+* change directory to previous installation
+* checkout version 2.1.0
+* run installer with migration option and pass the current directory as parameter
+#### Notes
+ * You can also use existing data by cloning repo from scratch to another directory. In that case, instead of current 
+directory, you have to pass the path to `v2.0.2` installation directory with `-m` option  
+ * When it is run with migration option, installer does stop the previous installation before starting new one, but it 
+does not do any cleanup on previous installation data or configuration, it is users responsibility to keep or delete them
+ * Never delete the following directories of the previous installation, after migration they are linked and reused by the 
+new version
+   * `<previous standalone-rpc path>/near`
+   * `<previous standalone-rpc path>/engine`
+#### Example
+```shell
+cd ~/repo/standalone-rpc/
+git fetch
+git checkout v2.1.0
+./install.sh -m .
+```
+
 [Curl]: https://curl.se/
 [Nginx]: https://www.nginx.com/
 [Docker]: https://docs.docker.com/engine/install/
@@ -82,3 +109,4 @@ further customizations. To enable write transactions with your account, you need
 [AWS Account]: https://youtu.be/GsF7I93K-EQ?t=277
 [Aurora Relayer2]: https://github.com/aurora-is-near/relayer2-public
 [Aurora Refiner]: https://github.com/aurora-is-near/borealis-engine-lib
+[Write Transactions & Custom Signers]: https://github.com/aurora-is-near/standalone-rpc#write-transactions--custom-signers

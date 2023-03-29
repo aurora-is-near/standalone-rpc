@@ -15,10 +15,14 @@ RUN apt update && apt install make pkg-config libssl-dev clang -y  \
     && git clone https://github.com/aurora-is-near/borealis-engine-lib.git .  \
     && git checkout "$VERSION"  \
     && mkdir -p output/refiner  \
-    && cargo build --release
+    && cargo build --release  \
+    && echo "branch: $(git rev-parse --abbrev-ref HEAD)" > target/release/build.info \
+    && echo "commit: $(git rev-parse HEAD)" >> target/release/build.info \
+    && echo "tag: $(git describe --tag --exact-match $(git rev-parse HEAD) 2>/dev/null)" >> target/release/build.info
 
 FROM ubuntu:latest
 
+COPY --from=build /src/target/release/build.info /version
 COPY --from=build /src/target/release/aurora-refiner /usr/local/bin/
 COPY refiner.sh /docker-entrypoint.sh
 

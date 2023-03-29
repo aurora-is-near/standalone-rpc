@@ -26,5 +26,13 @@ coverage/
 /srpc2
 /output
 
+# Installation artifacts of old versions (<2.0.2)
+/near
+/config
+/database
+/engine
+/refiner
 .latest
-
+start.sh
+stop.sh
+docker-compose.yaml
