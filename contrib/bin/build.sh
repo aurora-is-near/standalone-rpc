@@ -9,60 +9,72 @@ build_stage="build"
 
 push=0
 key=""
-relayer_version=""
-refiner_version="v0.17.0"
 
-build() {
-  if [ "x$relayer_version" = "x" ]; then
-    echo "relayer version should be specified!"
-    usage
-    exit 1
-  fi
-
-  if [ "x$refiner_version" = "x" ]; then
-    echo "refiner version should be specified!"
-    usage
-    exit 1
-  fi
-
-  # for private repo
+# build_one {image} {version} {tag prefix}
+build_one() {
+  echo "Building $1 $2 ..."
   if [ -f "$key" ]; then
-    key=$(bzip2 -cz "$key" | base64 | tr -d "\n")
+   key=$(bzip2 -cz "$key" | base64 | tr -d "\n")
   fi
-
   docker build \
-  --build-arg STAGE="$build_stage" \
-  --build-arg BUILD_ID="${relayer_version}" \
-  --build-arg VERSION="${relayer_version}" \
-  --build-arg KEY="${key}" \
-  --no-cache -f "${build_path}/Dockerfile.relayer" -t "${DOCKER_TAG_RELAYER}:${relayer_version}" "${build_context}"
-  docker image prune --filter label=stage="$build_stage" --filter label=build="${relayer_version}" --force
-  docker tag "${DOCKER_TAG_RELAYER}:${relayer_version}" "${DOCKER_TAG_RELAYER}:latest"
-
-  docker build \
-  --build-arg STAGE="$build_stage" \
-  --build-arg BUILD_ID="${refiner_version}" \
-  --build-arg VERSION="${refiner_version}" \
-  --no-cache -f "${build_path}/Dockerfile.refiner" -t "${DOCKER_TAG_REFINER}:${refiner_version}" "${build_context}"
-  docker image prune --filter label=stage="$build_stage" --filter label=build="${refiner_version}" --force
-  docker tag "${DOCKER_TAG_REFINER}:${refiner_version}" "${DOCKER_TAG_REFINER}:latest"
+    --build-arg STAGE="$build_stage" \
+    --build-arg BUILD_ID="$2" \
+    --build-arg VERSION="$2" \
+    --build-arg KEY="${key}" \
+    --no-cache -f "${build_path}/Dockerfile.$1" -t "$3:$2" "${build_context}"
+    docker image prune --filter label="stage=$build_stage" --filter label="build=$2" --force
+    docker tag "$3:$2" "$3:latest"
+  if [ $push -eq 1 ]; then
+    push "$3" "$2"
+    push "$3" "latest"
+  fi
 }
 
+# push {tag prefix} {version}
 push() {
-  if [ $push -eq 1 ]; then
-    docker push "${DOCKER_TAG_RELAYER}":latest
-    docker push "${DOCKER_TAG_RELAYER}":"${relayer_version}"
-    docker push "${DOCKER_TAG_REFINER}":latest
-    docker push "${DOCKER_TAG_REFINER}":"${refiner_version}"
+  echo "Pushing $1:$2 ..."
+  docker push "$1:$2"
+}
+
+# build [images ...]
+build() {
+  if [ $# -eq 0 ]; then
+    set -- "relayer" "refiner"
   fi
+  for i in "$@"; do
+    if [ "$i" != "relayer" ] && [ "$i" != "refiner" ]; then
+      echo "Invalid Image Name: [$i]"
+      usage
+      exit 1
+    fi
+    eval "version=\$${i}_version"
+    if [ "x$version" = "x" ]; then
+      echo "Unknown Version: [$i] version should be specified!"
+      usage
+      exit 1
+    fi
+    eval "tag=\$DOCKER_TAG_$(echo ${i} | tr [:lower:] [:upper:])"
+    build_one "$i" "$version" "$tag"
+  done
 }
 
 usage() {
-  # TODO: add usage
-  echo "TODO usage..."
+  printf '\nUsage:\t\t%s [Options] [Images ...]' "$(basename "$0")"
+  printf '\n\nImages:\t\t%s\n' "default all, if not specified"
+  set -- "relayer" "refiner"
+  for i in "$@"; do
+    printf '  %s\n' "$i"
+  done
+  printf '\nOptions:\n'
+  printf '  %s\t\t%s\n' "-v" "relayer version, mandatory option to build relayer"
+  printf '  %s\t\t%s\n' "-r" "refiner version, mandatory option to build refiner"
+  printf '  %s\t\t%s\n' "-p" "push images to docker repository, default no push"
+  printf '  %s\t\t%s\n' "-h" "prints usage"
+  printf '\nExamples:\n'
+  printf '  %s\n\n' "./build.sh -r v0.18.0 -v v2.0.0 -p"
 }
 
-while getopts ":v:r:k:p" opt; do
+while getopts ":v:r:k:ph" opt; do
   case "${opt}" in
     v)
       relayer_version="${OPTARG}"
@@ -75,6 +87,10 @@ while getopts ":v:r:k:p" opt; do
       ;;
     p)
       push=1
+      ;;
+    h)
+      usage
+      exit 0
       ;;
     \?)
       echo "Invalid Option: -${OPTARG}" 1>&2
@@ -90,7 +106,4 @@ while getopts ":v:r:k:p" opt; do
 done
 shift $((OPTIND-1))
 
-build
-if [ $push -eq 1 ]; then
-  push
-fi
+build "$@"
