@@ -9,6 +9,15 @@ migrate_from=""
 use_snapshots=1
 download_workers=256
 
+# config.json, genesis.json install url
+if [ "$network" = "testnet" ]; then
+  config_install_url="https://files.deploy.aurora.dev/testnet/config.json"
+  genesis_install_url="https://files.deploy.aurora.dev/testnet/genesis.json.gz"
+else
+  config_install_url="https://files.deploy.aurora.dev/mainnet-new-rpc/config.json"
+  genesis_install_url="https://files.deploy.aurora.dev/mainnet-new-rpc/genesis.json.gz"
+fi
+
 trap "echo Exited!; exit 2;" INT TERM
 
 if [ ! -d "./${src_dir}" ]; then
@@ -91,11 +100,11 @@ install() {
       mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
       if [ ! -f "${INSTALL_DIR}/near/config.json" ]; then
         echo "Downloading default configuration..."
-        curl -sSf -o "${INSTALL_DIR}/near/config.json" https://files.deploy.aurora.dev/"${network}"-new-rpc/config.json
+        curl -sSf -o "${INSTALL_DIR}/near/config.json" "$config_install_url"
       fi
       if [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
         echo "Downloading genesis file..."
-        curl -sSf -o "${INSTALL_DIR}/near/genesis.json.gz" https://files.deploy.aurora.dev/"${network}"-new-rpc/genesis.json.gz
+        curl -sSf -o "${INSTALL_DIR}/near/genesis.json.gz" "$genesis_install_url"
         echo "Extracting genesis file..."
         gzip -d "${INSTALL_DIR}/near/genesis.json.gz"
       fi
