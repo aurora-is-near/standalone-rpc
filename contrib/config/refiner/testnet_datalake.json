@@ -7,7 +7,7 @@
     },
     "input_mode": {
         "DataLake": {
-            "network": "Mainnet"
+            "network": "Testnet"
         }
     },
     "output_storage": {
