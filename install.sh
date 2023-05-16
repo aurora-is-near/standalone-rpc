@@ -66,7 +66,7 @@ install() {
     latest=""
     if [ ! -f "${INSTALL_DIR}/.latest" ]; then
       echo Initial
-      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/mainnet-relayer2-latest)
+      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${network}-relayer2-latest)
       echo "${latest}" > "${INSTALL_DIR}/.latest"
     fi
     latest=$(cat "${INSTALL_DIR}/.latest")
@@ -75,7 +75,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/mainnet-relayer2-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${network}-relayer2-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
           finish=1
         fi
