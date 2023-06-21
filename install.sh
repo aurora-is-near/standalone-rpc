@@ -191,7 +191,7 @@ while getopts ":n:r:m:w:svh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
-      if [ "$network" != "mainnet" ] && [ "$network" != "testnet" ]; then
+      if [ "$network" != "mainnet" ] && [ "$network" != "testnet" ] && [ "$network" != "innovation" ]; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
         exit 1
