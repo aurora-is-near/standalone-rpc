@@ -2,7 +2,7 @@ Standalone Aurora Relayer and Refiner
 =
 
 ## Prerequisites and Dependencies
-* x64-64 architecture
+* x86-64 architecture
 * requires [Curl]
 * requires [Docker], recommended versions;
   * Docker Engine v20.10.18 and above
@@ -14,8 +14,8 @@ Standalone Aurora Relayer and Refiner
 ## How to Install and Start
 ```shell
 git clone https://github.com/aurora-is-near/standalone-rpc
-git checkout {version tag}
 cd standalone-rpc
+git checkout {version tag}
 ./install.sh
 ```
 
