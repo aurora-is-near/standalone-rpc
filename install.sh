@@ -158,6 +158,7 @@ install() {
   cp "./${src_dir}/bin/start.sh" "${INSTALL_DIR}/start.sh"
   cp "./${src_dir}/bin/stop.sh" "${INSTALL_DIR}/stop.sh"
   cp "./${src_dir}/bin/common.sh" "${INSTALL_DIR}/common.sh"
+  cp "./${src_dir}/bin/support.sh" "${INSTALL_DIR}/support.sh"
 
   echo "Starting..."
   ./"${INSTALL_DIR}"/start.sh
