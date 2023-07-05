@@ -1,0 +1,13 @@
+rpcNode:
+  httpHost: 0.0.0.0
+  httpPort: 8545
+  httpCors:
+    - "*"
+  httpCompress: true
+  httpTimeout: 300 # in seconds
+  httpPathPrefix: "*"
+  wsHost: 0.0.0.0 # Both wsHost and wsPort are mandatory to start the websocket
+  wsPort: 8545 # Both wsHost and wsPort are mandatory to start the websocket
+  wsHandshakeTimeout: 10 # in seconds
+  wsPathPrefix: "*"
+  maxBatchRequests: 1000

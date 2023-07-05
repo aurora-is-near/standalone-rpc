@@ -2,6 +2,7 @@ FROM golang:alpine as build
 
 ARG KEY
 ARG VERSION
+ARG OVERWRITE_VERSION=$VERSION
 ARG BUILD_ID
 ARG STAGE
 
@@ -23,7 +24,7 @@ RUN apk add --no-cache git  \
     && mkdir /src && mkdir /src/nearkey && cd /src  \
     && apk add --no-cache make  \
     && git clone https://github.com/aurora-is-near/relayer2-public.git && cd relayer2-public  \
-    && git checkout "$VERSION" && make  \
+    && git checkout "$VERSION" && make && sed -i "s/$VERSION/$OVERWRITE_VERSION/g" out/build.info  \
     && cd ../ && git clone https://github.com/peak/s5cmd.git && cd s5cmd  \
     && go build -o s5cmd
 
@@ -40,10 +41,17 @@ COPY --from=build /src/relayer2-public/out/relayer /usr/local/bin/
 COPY --from=build /src/s5cmd/s5cmd /usr/local/bin/
 COPY --from=build /src/nearkey/nearkey /usr/local/bin/
 
-RUN mkdir -p /config /data/relayer /data/refiner /near /log
+COPY relayer.sh /docker-entrypoint.sh
+COPY "update/relayer" /update
+COPY common.sh /common.sh
+
+RUN mkdir -p /config /data/relayer /data/refiner /near /log \
+    && wget https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 -O /usr/bin/yq \
+    && chmod +x /usr/bin/yq
+
 VOLUME /config
 VOLUME /data
 VOLUME /near
 VOLUME /log
 
-ENTRYPOINT [ "/usr/local/bin/relayer", "start", "-c", "/config/relayer.yaml" ]
+ENTRYPOINT ["/docker-entrypoint.sh"]

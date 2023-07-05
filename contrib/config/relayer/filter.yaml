@@ -2,8 +2,5 @@ filter:
   IP:
     policy: "deny"
     list:
-      -
   EOA:
-    -
   CA:
-    -
