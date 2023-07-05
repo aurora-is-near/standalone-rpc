@@ -1,7 +1,15 @@
 #!/bin/sh
 
+script_home=$(dirname "$(realpath "$0")")
+. "${script_home}/common.sh"
+
 height=""
 cmd="/usr/local/bin/aurora-refiner -c /config/refiner.json run"
+
+if [ "x$curr_version" != "x" ] && [ "$long_version" != "$curr_version" ]; then
+  echo "successfully updated to $long_version"
+  echo "$long_version $(date)" >> $version_log_file
+fi
 
 while [ "x$height" = "x" ]; do
   # get latest block from relayer to start refiner from specific height

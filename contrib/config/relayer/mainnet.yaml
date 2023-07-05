@@ -43,23 +43,18 @@ endpoint:
   disabledEndpoints:
     -
 rpcNode:
-  geth:
-    HTTPHost: 0.0.0.0
-    HTTPPort: 8545
-    HTTPVirtualHosts:
-      - srpc2-relayer
-    HTTPModules:
-      - "net"
-      - "web3"
-      - "eth"
-      - "parity"
-    WSHost: 0.0.0.0
-    WSPort: 8545
-    WSModules:
-      - "net"
-      - "web3"
-      - "eth"
-      - "parity"
+  httpHost: 0.0.0.0
+  httpPort: 8545
+  httpCors:
+    - "*"
+  httpCompress: true
+  httpTimeout: 300 # in seconds
+  httpPathPrefix: "*"
+  wsHost: 0.0.0.0 # Both wsHost and wsPort are mandatory to start the websocket
+  wsPort: 8545 # Both wsHost and wsPort are mandatory to start the websocket
+  wsHandshakeTimeout: 10 # in seconds
+  wsPathPrefix: "*"
+  maxBatchRequests: 1000
 indexer:
   sourceFolder: /data/refiner/
   subFolderBatchSize: 10000   # should match with Aurora refiner batch size, see https://github.com/aurora-is-near/borealis-engine-lib
