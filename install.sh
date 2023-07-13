@@ -20,6 +20,10 @@ fi
 
 install() {
 
+  if [ "${network}" = "testnet" ]; then
+	  near_postfix="testnet"
+  fi
+
   if [ -f "${VERSION_FILE}" ]; then
     echo "There is already an Aurora Standalone RPC installation running or an unfinished installation exists"
     if confirmed "To continue with installation, you have to first uninstall. Would you like to uninstall?"; then
@@ -44,7 +48,7 @@ install() {
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
     echo "Generating relayer key..."
-    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey relayer%.${near_postfix} > /config/relayer.json"
+    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey > /config/relayer.json"
     relayerName=$(cat "${INSTALL_DIR}/config/relayer/relayer.json" | grep account_id | cut -d\" -f4)
     sed "s/%%SIGNER%%/${relayerName}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
     mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"

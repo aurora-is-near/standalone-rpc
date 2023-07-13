@@ -62,6 +62,9 @@ func newKey(accountid string) string {
 	if err != nil {
 		panic(err) // This should never occur.
 	}
+	if accountid == "" {
+		accountid = hex.EncodeToString(pub)
+	}
 	kf := &KeyFile{
 		AccountID: accountid,
 		PublicKey: prefix + encode58(pub),
