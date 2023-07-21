@@ -4,9 +4,12 @@ src_dir="contrib"
 near_postfix="near"
 
 network="mainnet"
+near_network="mainnet"
+silo_config_file=""
 near_source="nearcore" # nearcore or datalake
 migrate_from=""
-use_snapshots=1
+use_aurora_snapshot=1
+use_near_snapshot=1
 download_workers=256
 
 trap "echo Exited!; exit 2;" INT TERM
@@ -18,11 +21,113 @@ fi
 
 . ./${src_dir}/bin/common.sh
 
-install() {
-
-  if [ "${network}" = "testnet" ]; then
-	  near_postfix="testnet"
+valid_silo_config() {
+  if [ ! -f "$1" ]; then
+      return 1
   fi
+  while read -r config || [ -n "$config" ]; do
+      if [ -n "$config" ] && [ "$config" != " " ] && ! beginswith "#" "$config"; then
+          value=$(echo "$config" | cut -d ':' -f2- | awk '{$1=$1};1')
+          if [ -n "$value" ] && [ "$value" != " " ] && [ -z "${value##*:*}" ]; then
+              return 1
+          fi
+      fi
+  done < "$1"
+}
+
+apply_silo_config() {
+    silo_network=$(grep "SILO_NETWORK" "$1" | cut -d ':' -f2- | awk '{$1=$1};1')
+    sed "s/%%SILO_NETWORK%%/${silo_network}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
+    mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+    sed "s/%%SILO_NETWORK%%/${silo_network}/" "${INSTALL_DIR}/docker-compose.yaml" > "${INSTALL_DIR}/docker-compose.yaml2" && \
+    mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
+
+    silo_chain_id=$(grep "SILO_CHAIN_ID" "$1" | cut -d ':' -f2- | awk '{$1=$1};1')
+    sed "s/%%SILO_CHAIN_ID%%/${silo_chain_id}/" "${INSTALL_DIR}/config/refiner/refiner.json" > "${INSTALL_DIR}/config/refiner/refiner.json2" && \
+    mv "${INSTALL_DIR}/config/refiner/refiner.json2" "${INSTALL_DIR}/config/refiner/refiner.json"
+    sed "s/%%SILO_CHAIN_ID%%/${silo_chain_id}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
+    mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+
+    silo_genesis=$(grep "SILO_GENESIS" "$1" | cut -d ':' -f2- | awk '{$1=$1};1')
+    sed "s/%%SILO_GENESIS%%/${silo_genesis}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
+    mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+
+    silo_from_block=$(grep "SILO_FROM_BLOCK" "$1" | cut -d ':' -f2- | awk '{$1=$1};1')
+    sed "s/%%SILO_FROM_BLOCK%%/${silo_from_block}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
+    mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+    sed "s/%%SILO_FROM_BLOCK%%/${silo_from_block}/" "${INSTALL_DIR}/docker-compose.yaml" > "${INSTALL_DIR}/docker-compose.yaml2" && \
+    mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
+
+    engine_account_json=$(grep "SILO_ENGINE_ACCOUNT_JSON" "$silo_config_file" | cut -d ':' -f2- | awk '{$1=$1};1')
+    if [ ! -f "$engine_account_json" ]; then
+      echo "Engine account JSON file could not be found at [$engine_account_json], please check your config file [$silo_config_file]"
+      exit 1
+    fi
+    cp "$engine_account_json" "${INSTALL_DIR}/config/relayer/relayer.json"
+
+    if [ ${near_source} = "datalake" ]; then
+      silo_datalake_network=$(to_upper_first "$silo_network")
+      sed "s/%%SILO_DATALAKE_NETWORK%%/${silo_datalake_network}/" "${INSTALL_DIR}/config/refiner/refiner.json" > "${INSTALL_DIR}/config/refiner/refiner.json2" && \
+      mv "${INSTALL_DIR}/config/refiner/refiner.json2" "${INSTALL_DIR}/config/refiner/refiner.json"
+    fi
+}
+
+apply_nearcore_config() {
+  if [ "x$migrate_from" != "x" ]; then
+    ln -s "$migrate_from/near" "${INSTALL_DIR}/near"
+    ln -s "$migrate_from/engine" "${INSTALL_DIR}/engine"
+  else
+    mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
+    if [ ! -f "${INSTALL_DIR}/near/config.json" ]; then
+      echo "Downloading default configuration..."
+      curl -sSf -o "${INSTALL_DIR}/near/config.json" https://files.deploy.aurora.dev/"${near_network}"-new-rpc/config.json
+    fi
+    if [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
+      echo "Downloading genesis file..."
+      curl -sSf -o "${INSTALL_DIR}/near/genesis.json.gz" https://files.deploy.aurora.dev/"${near_network}"-new-rpc/genesis.json.gz
+      echo "Extracting genesis file..."
+      gzip -d "${INSTALL_DIR}/near/genesis.json.gz"
+    fi
+    if [ ! -f "${INSTALL_DIR}/near/node_key.json" ]; then
+      echo "Generating node_key..."
+      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/node_key.json"
+    fi
+    if [ ! -f "${INSTALL_DIR}/near/validator_key.json" ]; then
+      echo "Generating validator_key..."
+      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/validator_key.json"
+    fi
+    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
+      echo "Downloading near chain snapshot..."
+      latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --no-sign-request --numworkers $download_workers cat s3://near-protocol-public/backups/${near_network}/rpc/latest")
+      finish=0
+      while [ ${finish} -eq 0 ]; do
+        echo "Fetching, this can take some time..."
+        docker run --rm --name near_downloader -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/"${latest}"/* /near/data/"
+        if [ -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
+          finish=1
+        fi
+      done
+    fi
+  fi
+}
+
+apply_datalake_config() {
+  if [ "x$AWS_SHARED_CREDENTIALS_FILE" = "x" ]; then
+    echo "Installation failed, environment variable AWS_SHARED_CREDENTIALS_FILE is needed for datalake config." \
+         "Please set environment variable AWS_SHARED_CREDENTIALS_FILE for [$USER] user or run installer as 'AWS_SHARED_CREDENTIALS_FILE={path to AWS credentials file} ./install.sh'"
+    echo "For more details, also see https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html"
+    exit 1
+  fi
+  if [ ! -f "$AWS_SHARED_CREDENTIALS_FILE" ]; then
+    echo "Installation failed, datalake config requires AWS account." \
+         "Create [$AWS_SHARED_CREDENTIALS_FILE] file and run install script again!"
+    exit 1
+  fi
+  sed "s|%%AWS%%|${AWS_SHARED_CREDENTIALS_FILE}|" "${INSTALL_DIR}/docker-compose.yaml" > "${INSTALL_DIR}/docker-compose.yaml2"
+  mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
+}
+
+install() {
 
   if [ -f "${VERSION_FILE}" ]; then
     echo "There is already an Aurora Standalone RPC installation running or an unfinished installation exists"
@@ -36,6 +141,7 @@ install() {
   echo "Installing" && version | tee "${VERSION_FILE}"
 
   set -e
+
   mkdir -p  "${INSTALL_DIR}/data/relayer" \
             "${INSTALL_DIR}/data/refiner" \
             "${INSTALL_DIR}/config/relayer" \
@@ -44,14 +150,6 @@ install() {
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.yaml" ]; then
     cp "./${src_dir}/config/relayer/${network}.yaml" "${INSTALL_DIR}/config/relayer/relayer.yaml"
-  fi
-
-  if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
-    echo "Generating relayer key..."
-    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey > /config/relayer.json"
-    relayerName=$(cat "${INSTALL_DIR}/config/relayer/relayer.json" | grep account_id | cut -d\" -f4)
-    sed "s/%%SIGNER%%/${relayerName}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
-    mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
   fi
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/filter.yaml" ]; then
@@ -66,7 +164,11 @@ install() {
     cp "./${src_dir}/config/nginx/${network}.conf" "${INSTALL_DIR}/config/nginx/endpoint.conf"
   fi
 
-  if [ $use_snapshots -eq 1 ] || [ "x$migrate_from" != "x" ]; then
+  if [ ! -f "${INSTALL_DIR}/docker-compose.yaml" ]; then
+    cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
+  fi
+
+  if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
     latest=""
     if [ ! -f "${INSTALL_DIR}/.latest" ]; then
       echo Initial
@@ -87,64 +189,30 @@ install() {
     fi
   fi
 
-  if [ ${near_source} = "nearcore" ]; then
-    if [ "x$migrate_from" != "x" ]; then
-      ln -s "$migrate_from/near" "${INSTALL_DIR}/near"
-      ln -s "$migrate_from/engine" "${INSTALL_DIR}/engine"
-    else
-      mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
-      if [ ! -f "${INSTALL_DIR}/near/config.json" ]; then
-        echo "Downloading default configuration..."
-        curl -sSf -o "${INSTALL_DIR}/near/config.json" https://files.deploy.aurora.dev/"${network}"-new-rpc/config.json
-      fi
-      if [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
-        echo "Downloading genesis file..."
-        curl -sSf -o "${INSTALL_DIR}/near/genesis.json.gz" https://files.deploy.aurora.dev/"${network}"-new-rpc/genesis.json.gz
-        echo "Extracting genesis file..."
-        gzip -d "${INSTALL_DIR}/near/genesis.json.gz"
-      fi
-      if [ ! -f "${INSTALL_DIR}/near/node_key.json" ]; then
-        echo "Generating node_key..."
-        docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/node_key.json"
-      fi
-      if [ ! -f "${INSTALL_DIR}/near/validator_key.json" ]; then
-        echo "Generating validator_key..."
-        docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/validator_key.json"
-      fi
-      if [ $use_snapshots -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
-        echo "Downloading near chain snapshot..."
-        latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --no-sign-request --numworkers $download_workers cat s3://near-protocol-public/backups/${network}/rpc/latest")
-        finish=0
-        while [ ${finish} -eq 0 ]; do
-          echo "Fetching, this can take some time..."
-          docker run --rm --name near_downloader -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${network}/rpc/"${latest}"/* /near/data/"
-          if [ -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
-            finish=1
-          fi
-        done
-      fi
-    fi
-    cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
-  elif [ ${near_source} = "datalake" ]; then
-    if [ "x$AWS_SHARED_CREDENTIALS_FILE" = "x" ]; then
-      echo "Installation failed, environment variable AWS_SHARED_CREDENTIALS_FILE is needed for datalake config." \
-           "Please set environment variable AWS_SHARED_CREDENTIALS_FILE for [$USER] user or run installer as 'AWS_SHARED_CREDENTIALS_FILE={path to AWS credentials file} ./install.sh'"
-      echo "For more details, also see https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html"
-      exit 1
-    fi
-    if [ ! -f "$AWS_SHARED_CREDENTIALS_FILE" ]; then
-      echo "Installation failed, datalake config requires AWS account." \
-           "Create [$AWS_SHARED_CREDENTIALS_FILE] file and run install script again!"
-      exit 1
-    fi
-    sed "s|%%AWS%%|${AWS_SHARED_CREDENTIALS_FILE}|" "./${src_dir}/config/docker/${network}_${near_source}.yaml" > "${INSTALL_DIR}/docker-compose.yaml"
+  if [ "${network}" = "silo" ]; then
+    apply_silo_config "$silo_config_file"
+    near_network="$silo_network"
   else
-    echo "Installation failed, invalid near data source. It should either be 'datalake' or 'nearcore' !"
-    exit 1
+    near_network="$network"
   fi
 
-  if [ $use_snapshots -eq 0 ] \
-    || [ ${near_source} = "nearcore" -a -f "${INSTALL_DIR}/near/data/CURRENT" -a -f "${INSTALL_DIR}/data/relayer/.version" ] \
+  if [ "${near_source}" = "nearcore" ]; then
+    apply_nearcore_config
+  else
+    apply_datalake_config
+  fi
+
+  if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
+    echo "Generating relayer key..."
+    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey > /config/relayer.json"
+  fi
+
+  account_id=$(grep "account_id" "${INSTALL_DIR}/config/relayer/relayer.json" | cut -d\" -f4)
+  sed "s/%%SIGNER%%/${account_id}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
+  mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+
+  if [ $use_aurora_snapshot -eq 0 -a $use_near_snapshot -eq 0 ] \
+    || [ $use_near_snapshot -eq 1 -a ${near_source} = "nearcore" -a -f "${INSTALL_DIR}/near/data/CURRENT" -a -f "${INSTALL_DIR}/data/relayer/.version" ] \
     || [ ${near_source} = "datalake" -a -f "${INSTALL_DIR}/data/relayer/.version" ]; then
     echo "Setup complete [${network}, ${near_source}]"
   fi
@@ -177,26 +245,34 @@ version() {
 
 usage() {
   printf '\nUsage: %s [options]' "$(basename "$0")"
-  printf '\nOptions\n'
-  printf ' %s\t%s\n' "-n {mainnet|testnet}" "network to use, default is mainnet."
-  printf ' %s\t%s\n' "-r {nearcore|datalake}" "near source for indexing, default is nearcore."
-  printf ' %s\t\t%s\n\t\t\t%s\n' "-m {path}" "use the existing nearcore data at 'path' instead of downloading snapshots from scratch." \
+  printf '\n\nOptions\n'
+  printf ' %s\t%s\n\n' "-n {mainnet|testnet|silo}" "network to use, default is mainnet."
+  printf ' %s\t\t\t%s\n\t\t\t\t%s\n\n' "-f {path}" "for silo networks, this is the path to your silo configuration file." \
+  "This option is valid only if silo network is used, and '-s' option is ignored if this option is given."
+  printf ' %s\t\t%s\n\n' "-r {nearcore|datalake}" "near source for indexing, default is nearcore."
+  printf ' %s\t\t\t%s\n\t\t\t\t%s\n\n' "-m {path}" "use the existing nearcore data at 'path' instead of downloading snapshots from scratch." \
   "This option is valid only if nearcore config is used, and '-s' option is ignored if this option is given."
-  printf ' %s\t%s\n\t\t\t%s\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
+  printf ' %s\t\t%s\n\t\t\t\t%s\n\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
   "NOTE: On some OS and HW configurations, default number of workers may cause high CPU consumption during download."
-  printf ' %s\t\t\t%s\n\t\t\t%s\n\t\t\t%s\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
+  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
   "NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option" \
   "if near source is selected as datalake otherwise refiner will not be sync with near core from scratch."
-  printf ' %s\t\t\t%s\n' "-v" "prints version"
-  printf ' %s\t\t\t%s\n\t\t\t%s\n' "-h" "prints usage"
-  printf 'Example\n%s\n\n' "./install.sh -n mainnet -r datalake -s"
+  printf ' %s\t\t\t\t%s\n\n' "-v" "prints version"
+  printf ' %s\t\t\t\t%s\n\n' "-h" "prints usage"
+  printf 'Examples\n'
+  printf ' %s\t\t-> %s\n\n' "./install.sh -n mainnet -r datalake -s" "use mainnet with near data lake but do not download snapshots"
+  printf ' %s\t\t-> %s\n\n' "./install.sh -n silo -f ./silo.conf" "use sile network whose config is defined in silo.conf, near source for indexing is nearcore"
 }
 
-while getopts ":n:r:m:w:svh" opt; do
+while getopts ":n:r:m:f:w:svh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
-      if [ "$network" != "mainnet" ] && [ "$network" != "testnet" ]; then
+      if [ "${network}" = "silo" ]; then
+        use_aurora_snapshot=0
+      elif [ "${network}" = "testnet" ]; then
+        near_postfix="testnet"
+      elif [ "${network}" != "mainnet" ]; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
         exit 1
@@ -227,7 +303,11 @@ while getopts ":n:r:m:w:svh" opt; do
       fi
       ;;
     s)
-      use_snapshots=0
+      use_aurora_snapshot=0
+      use_near_snapshot=0
+      ;;
+    f)
+      silo_config_file="${OPTARG}"
       ;;
     v)
       version
@@ -250,5 +330,10 @@ while getopts ":n:r:m:w:svh" opt; do
   esac
 done
 shift $((OPTIND-1))
+
+if [ "${network}" = "silo" ] && ! valid_silo_config "$silo_config_file"; then
+  echo "Invalid silo config, $silo_config_file. For more information, see template config ./${src_dir}/silo/template.conf"
+  exit 1
+fi
 
 install

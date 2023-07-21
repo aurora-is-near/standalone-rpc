@@ -1,0 +1,17 @@
+{
+    "refiner": {
+        "chain_id": %%SILO_CHAIN_ID%%,
+        "engine_path": "/engine",
+        "tx_tracker_path": "/engine/tx_tracker",
+        "engine_account_id": "aurora"
+    },
+    "input_mode": {
+        "DataLake": {
+            "network": "%%SILO_DATALAKE_NETWORK%%"
+        }
+    },
+    "output_storage": {
+        "path": "/data",
+        "batch_size": 10000
+    }
+}
