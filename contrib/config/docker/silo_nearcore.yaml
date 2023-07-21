@@ -1,0 +1,94 @@
+---
+version: '3.8'
+services:
+  relayer:
+    image: nearaurora/srpc2-relayer
+    container_name: srpc2-relayer
+#    pull_policy: missing
+#    build:
+#      dockerfile: ../contrib/config/build/Dockerfile.relayer
+    restart: unless-stopped
+    init: true
+    environment:
+      - NEAR_ENV=%%SILO_NETWORK%%
+      - NODE_ENV=%%SILO_NETWORK%%
+    expose:
+      - '8545'
+    volumes:
+      - ./config/relayer:/config
+      - ./data/relayer:/data/relayer
+      - ./data/refiner:/data/refiner
+      - ./near:/near
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 5m
+        max-file: "5"
+    networks:
+      static-network:
+  refiner:
+    image: nearaurora/srpc2-refiner
+    container_name: srpc2-refiner
+    entrypoint: ["/docker-entrypoint.sh", "%%SILO_FROM_BLOCK%%"]
+#    pull_policy: missing
+#    build:
+#      dockerfile: ../contrib/config/build/Dockerfile.refiner
+    restart: unless-stopped
+    environment:
+      - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
+      - TZ=UTC0
+    volumes:
+      - ./config/refiner:/config # config files
+      - ./data/refiner:/data # Output directory
+      - ./near:/near # Path to Nearcore data
+      - ./engine:/engine
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 5m
+        max-file: "5"
+    ports:
+      - '127.0.0.1:23030:3030'
+    networks:
+      static-network:
+        ipv4_address: 10.123.49.254
+  proxy:
+    image: nearaurora/reverseproxy:latest
+    container_name: srpc2-proxy
+    restart: unless-stopped
+    init: true
+    expose:
+      - '80'
+    ports:
+      - '20080:80'  # Remove this line to prevent listening on public IP address.
+      # - '127.0.0.1:20080:80' # Remove the hashtag in the beginning of this line to enable listening on 127.0.0.1.
+    volumes:
+      - ./config/nginx:/config
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 5m
+        max-file: "5"
+    networks:
+      static-network:
+        ipv4_address: 10.123.49.253
+  watchtower:
+    image: containrrr/watchtower
+    container_name: srpc2-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+#      - ./config/docker/config.json:/config.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 5m
+        max-file: "5"
+    command: --interval 30 srpc2-relayer srpc2-refiner srpc2-proxy
+networks:
+  static-network:
+    ipam:
+      config:
+        - subnet: 10.123.49.0/24
+volumes:
+  database:

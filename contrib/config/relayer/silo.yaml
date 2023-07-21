@@ -1,0 +1,80 @@
+logger:
+  level: info
+  filePath: /log/relayer.log
+  logToConsole: true
+  logToFile: false
+db:
+  badger:
+    core:
+      gcIntervalSeconds: 10
+      scanRangeThreshold: 2000
+      maxScanIterators: 10000
+      filterTtlMinutes: 15
+      options:
+        Dir: /data/relayer
+        ValueDir: /data/relayer
+        InMemory: false
+        DetectConflicts: false
+endpoint:
+  chainId: %%SILO_CHAIN_ID%%
+  filterFilePath: /config/filter.yaml
+  engine:
+    nearNetworkID: %%SILO_NETWORK%%
+    nearNodeURL: https://archival-rpc.%%SILO_NETWORK%%.near.org
+    signer: %%SIGNER%%
+    signerKey: /config/relayer.json
+    asyncSendRawTxs: true
+    minGasPrice: 0
+    minGasLimit: 21000
+    gasForNearTxsCall: 300000000000000
+    depositForNearTxsCall: 0
+    retryWaitTimeMsForNearTxsCall: 3000
+    retryNumberForNearTxsCall: 3
+  eth:
+    protocolVersion: 0x41
+    hashrate: 0
+    gasEstimate: 0x6691b7
+    gasPrice: 0x0
+  proxyEndpoints:
+    url: "https://%%SILO_NETWORK%%.aurora.dev:443"
+    endpoints:
+      - eth_estimateGas
+      - debug_traceTransaction
+  disabledEndpoints:
+    -
+rpcNode:
+  httpHost: 0.0.0.0
+  httpPort: 8545
+  httpCors:
+    - "*"
+  httpCompress: true
+  httpTimeout: 300 # in seconds
+  httpPathPrefix: ""
+  wsHost: 0.0.0.0 # Both wsHost and wsPort are mandatory to start the websocket
+  wsPort: 8545 # Both wsHost and wsPort are mandatory to start the websocket
+  wsHandshakeTimeout: 10 # in seconds
+  wsPathPrefix: ""
+  maxBatchRequests: 1000
+indexer:
+  sourceFolder: /data/refiner/
+  subFolderBatchSize: 10000   # should match with Aurora refiner batch size, see https://github.com/aurora-is-near/borealis-engine-lib
+  keepFiles: true
+  genesisBlock: %%SILO_GENESIS%% # 37157758 = Aurora Genesis
+  fromBlock: %%SILO_FROM_BLOCK%% # cannot be lower than Genesis
+  toBlock: 0                  # 0 = indefinite
+  retryCountOnFailure: 10
+  waitForBlockMs: 500
+backupIndexer: # N/A for silo
+  indexFromBackup: false
+  backupDir:
+  backupNamePrefix:
+  from:
+prehistoryIndexer: # N/A for silo
+  indexFromPrehistory: false
+  prehistoryHeight:
+  from:
+  to:
+  batchSize:
+  prehistoryChainId:
+  archiveURL:
+

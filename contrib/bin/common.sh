@@ -29,3 +29,11 @@ confirmed() {
             ;;
     esac
 }
+
+beginswith() { case "$2" in "$1"*) true;; *) false;; esac; }
+
+to_upper_first() {
+  upper_first=$(echo "$1" | cut -c1 | tr [a-z] [A-Z])
+  rest=$(echo "$1" | cut -c2-)
+  echo "$upper_first$rest"
+}
