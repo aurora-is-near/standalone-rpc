@@ -48,10 +48,20 @@ Examples
 After installation completes, standalone-rpc should start to serve RPC and catch up with the network. You can always 
 **stop** and **start** standalone-rpc by executing the `./stop.sh` or `./start.sh` scripts placed under `srpc2` directory.
 
-## How to Update
-The software in this installation is updated automatically. Whenever Aurora releases a new image, it will be downloaded, and services are restarted.
+## How to Update Containers
+The services/containers in this installation is updated automatically. Whenever Aurora releases a new image, it will be downloaded, and services are restarted.
 
 This is however not true for the included database and chain files. These are only downloaded initially when running `./install.sh`. Keep your node running to prevent going out of sync.
+
+## How to collect Support Information
+Users who are encountering problems and looking for a support for their installations, are encouraged to share some support information which helps us to identify problems. 
+To collect support information, installations with version `v2.1.1` (see, [From v2.1.0 to v2.1.1] for older versions) and above provides a script called `support.sh` under `srpc2` directory. User can run this script which collects following information;
+* OS version
+* Docker, Docker-Compose version
+* Memory, Disk, CPU Info
+* relayer and refiner versions, logs, and container info
+
+Upon running the script a tar ball with the following name `support-log-<timestamp>.tar.gz` is created under `srpc2` directory. 
 
 ## How to Uninstall
 ```shell
@@ -77,7 +87,7 @@ further customizations. To enable write transactions with your account, you need
 * [Aurora Relayer2] configuration can be changed from `srpc2/config/relayer/relayer.yaml`. Some configuration changes can be applied without requiring a restart, please see repository page for more details about configuration.
 * standalone-rpc uses [Nginx] as a reverse-proxy before [Aurora Relayer2] RPC endpoints. To change [Nginx] configuration, edit the config file `srpc2/config/nginx/endpoint.conf`, and restart standalone-rpc
 
-## Migration
+## Migration and Update of Installation
 ### from v2.0.2 to v2.1.0
 For those who already have a running Aurora Standalone RPC with version `v2.0.2`, the existing Near Data can be reused. 
 Meaning that, installer can skip the time-consuming Near Snapshot download step and use the Near Data of existing installation.
@@ -102,6 +112,11 @@ git checkout v2.1.0
 ./install.sh -m .
 ```
 
+### from v2.1.0 to v2.1.1
+* change directory to previous installation
+* checkout version 2.1.1
+* copy `contrib/bin/support.sh` to `srpc2/support.sh`
+
 [Curl]: https://curl.se/
 [Nginx]: https://www.nginx.com/
 [Docker]: https://docs.docker.com/engine/install/
@@ -110,3 +125,4 @@ git checkout v2.1.0
 [Aurora Relayer2]: https://github.com/aurora-is-near/relayer2-public
 [Aurora Refiner]: https://github.com/aurora-is-near/borealis-engine-lib
 [Write Transactions & Custom Signers]: https://github.com/aurora-is-near/standalone-rpc#write-transactions--custom-signers
+[From v2.1.0 to v2.1.1]: https://github.com/aurora-is-near/relayer2-public#from-v2.1.0-to-v2.1.1
