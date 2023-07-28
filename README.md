@@ -49,9 +49,29 @@ After installation completes, standalone-rpc should start to serve RPC and catch
 **stop** and **start** standalone-rpc by executing the `./stop.sh` or `./start.sh` scripts placed under `srpc2` directory.
 
 ## How to Update Containers
-The services/containers in this installation is updated automatically. Whenever Aurora releases a new image, it will be downloaded, and services are restarted.
+The services/containers in this installation is updated automatically. Whenever Aurora releases a new image, it will be downloaded, and services are restarted. In case you would like to use a
+specific version instead of the latest version, please check out [How to use specific version]
 
 This is however not true for the included database and chain files. These are only downloaded initially when running `./install.sh`. Keep your node running to prevent going out of sync.
+
+## How to Use Specific Version
+Users who are willing to use a specific Relayer and/or Refiner version other than the latest version, should follow the below steps after installation;
+* change directory to installation location
+* change the docker image version of the service (relayer/refiner) in `docker-compose.yaml` file under `srpc2`
+
+  e.g.: if you prefer to use relayer v2.0.0 instead of v2.1.0 (assuming this is the latest), `docker-compose.yaml` file should look like
+  ```yaml
+  ...
+  relayer:
+    image: nearaurora/srpc2-relayer:v2.0.0
+  ...
+  ```
+* restart services to have the change take effect
+  ```shell
+  ./stop.sh && ./start.sh
+  ```
+  
+**IMPORTANT**: Please note that, for the services you prefer to work with specific version other than latest, you will not receive any hot-fix or feature updates.
 
 ## How to collect Support Information
 Users who are encountering problems and looking for a support for their installations, are encouraged to share some support information which helps us to identify problems. 
@@ -126,3 +146,4 @@ git checkout v2.1.0
 [Aurora Refiner]: https://github.com/aurora-is-near/borealis-engine-lib
 [Write Transactions & Custom Signers]: https://github.com/aurora-is-near/standalone-rpc#write-transactions--custom-signers
 [From v2.1.0 to v2.1.1]: https://github.com/aurora-is-near/relayer2-public#from-v2.1.0-to-v2.1.1
+[How to use specific version]: https://github.com/aurora-is-near/relayer2-public#how-to-use-specific-version
