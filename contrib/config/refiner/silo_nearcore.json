@@ -3,7 +3,7 @@
         "chain_id": %%SILO_CHAIN_ID%%,
         "engine_path": "/engine",
         "tx_tracker_path": "/engine/tx_tracker",
-        "engine_account_id": "aurora"
+        "engine_account_id": "%%SILO_ENGINE_ACCOUNT%%"
     },
     "input_mode": {
         "Nearcore": {

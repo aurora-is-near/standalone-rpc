@@ -6,6 +6,7 @@ near_postfix="near"
 network="mainnet"
 near_network="mainnet"
 silo_config_file=""
+silo_name="mainnet"
 near_source="nearcore" # nearcore or datalake
 migrate_from=""
 use_aurora_snapshot=1
@@ -58,12 +59,12 @@ apply_silo_config() {
     sed "s/%%SILO_FROM_BLOCK%%/${silo_from_block}/" "${INSTALL_DIR}/docker-compose.yaml" > "${INSTALL_DIR}/docker-compose.yaml2" && \
     mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
 
-    engine_account_json=$(grep "SILO_ENGINE_ACCOUNT_JSON" "$silo_config_file" | cut -d ':' -f2- | awk '{$1=$1};1')
-    if [ ! -f "$engine_account_json" ]; then
-      echo "Engine account JSON file could not be found at [$engine_account_json], please check your config file [$silo_config_file]"
-      exit 1
-    fi
-    cp "$engine_account_json" "${INSTALL_DIR}/config/relayer/relayer.json"
+    filename=$(basename -- "$silo_config_file")
+    silo_name=$(echo "${filename%%.*}" | tr '[:upper:]' '[:lower:]')
+
+    engine_account=$(grep "SILO_ENGINE_ACCOUNT" "$silo_config_file" | cut -d ':' -f2- | awk '{$1=$1};1')
+    sed "s/%%SILO_ENGINE_ACCOUNT%%/${engine_account}/" "${INSTALL_DIR}/config/refiner/refiner.json" > "${INSTALL_DIR}/config/refiner/refiner.json2" && \
+    mv "${INSTALL_DIR}/config/refiner/refiner.json2" "${INSTALL_DIR}/config/refiner/refiner.json"
 
     if [ ${near_source} = "datalake" ]; then
       silo_datalake_network=$(to_upper_first "$silo_network")
@@ -168,27 +169,6 @@ install() {
     cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
   fi
 
-  if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
-    latest=""
-    if [ ! -f "${INSTALL_DIR}/.latest" ]; then
-      echo Initial
-      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${network}-relayer2-latest)
-      echo "${latest}" > "${INSTALL_DIR}/.latest"
-    fi
-    latest=$(cat "${INSTALL_DIR}/.latest")
-    if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-      echo "Downloading database snapshot ${latest}..."
-      finish=0
-      while [ ${finish} -eq 0 ]; do
-        echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${network}-relayer2-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
-        if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-          finish=1
-        fi
-      done
-    fi
-  fi
-
   if [ "${network}" = "silo" ]; then
     apply_silo_config "$silo_config_file"
     near_network="$silo_network"
@@ -201,6 +181,28 @@ install() {
   else
     apply_datalake_config
   fi
+
+  if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
+    latest=""
+    if [ ! -f "${INSTALL_DIR}/.latest" ]; then
+      echo Initial
+      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${near_network}_${silo_name}-relayer-latest)
+      echo "${latest}" > "${INSTALL_DIR}/.latest"
+    fi
+    latest=$(cat "${INSTALL_DIR}/.latest")
+    if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
+      echo "Downloading database snapshot ${latest}..."
+      finish=0
+      while [ ${finish} -eq 0 ]; do
+        echo "Fetching, this can take some time..."
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${near_network}_${silo_name}-relayer-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
+          finish=1
+        fi
+      done
+    fi
+  fi
+
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
     echo "Generating relayer key..."
@@ -268,11 +270,9 @@ while getopts ":n:r:m:f:w:svh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
-      if [ "${network}" = "silo" ]; then
-        use_aurora_snapshot=0
-      elif [ "${network}" = "testnet" ]; then
+      if [ "${network}" = "testnet" ]; then
         near_postfix="testnet"
-      elif [ "${network}" != "mainnet" ]; then
+      elif [ "${network}" != "mainnet" ] && [ "${network}" != "silo" ] ; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
         exit 1
