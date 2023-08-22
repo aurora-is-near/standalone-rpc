@@ -6,7 +6,7 @@ near_postfix="near"
 network="mainnet"
 near_network="mainnet"
 silo_config_file=""
-silo_name="mainnet"
+chain_id="1313161554"
 near_source="nearcore" # nearcore or datalake
 migrate_from=""
 use_aurora_snapshot=1
@@ -58,9 +58,6 @@ apply_silo_config() {
     mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
     sed "s/%%SILO_FROM_BLOCK%%/${silo_from_block}/" "${INSTALL_DIR}/docker-compose.yaml" > "${INSTALL_DIR}/docker-compose.yaml2" && \
     mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
-
-    filename=$(basename -- "$silo_config_file")
-    silo_name=$(echo "${filename%%.*}" | tr '[:upper:]' '[:lower:]')
 
     engine_account=$(grep "SILO_ENGINE_ACCOUNT" "$silo_config_file" | cut -d ':' -f2- | awk '{$1=$1};1')
     sed "s/%%SILO_ENGINE_ACCOUNT%%/${engine_account}/" "${INSTALL_DIR}/config/refiner/refiner.json" > "${INSTALL_DIR}/config/refiner/refiner.json2" && \
@@ -172,6 +169,7 @@ install() {
   if [ "${network}" = "silo" ]; then
     apply_silo_config "$silo_config_file"
     near_network="$silo_network"
+    chain_id="$silo_chain_id"
   else
     near_network="$network"
   fi
@@ -186,7 +184,7 @@ install() {
     latest=""
     if [ ! -f "${INSTALL_DIR}/.latest" ]; then
       echo Initial
-      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${near_network}_${silo_name}-relayer-latest)
+      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${chain_id}-relayer-latest)
       echo "${latest}" > "${INSTALL_DIR}/.latest"
     fi
     latest=$(cat "${INSTALL_DIR}/.latest")
@@ -195,7 +193,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${near_network}_${silo_name}-relayer-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
           finish=1
         fi
@@ -272,6 +270,7 @@ while getopts ":n:r:m:f:w:svh" opt; do
       network="${OPTARG}"
       if [ "${network}" = "testnet" ]; then
         near_postfix="testnet"
+        chain_id="1313161555"
       elif [ "${network}" != "mainnet" ] && [ "${network}" != "silo" ] ; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
