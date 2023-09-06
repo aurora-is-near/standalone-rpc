@@ -100,7 +100,7 @@ apply_nearcore_config() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        docker run --rm --name near_downloader -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/"${latest}"/* /near/data/"
+        docker run --rm --name near_downloader -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/* /near/data/"
         if [ -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
           finish=1
         fi
@@ -193,7 +193,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-"${latest}"/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
           finish=1
         fi
