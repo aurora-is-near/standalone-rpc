@@ -1,0 +1,3 @@
+endpoint:
+  engine:
+    nearArchivalNodeURL: https://archival-rpc.mainnet.near.org
