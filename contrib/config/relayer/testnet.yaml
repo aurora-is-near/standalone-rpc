@@ -20,7 +20,8 @@ endpoint:
   filterFilePath: config/filter.yaml
   engine:
     nearNetworkID: testnet
-    nearNodeURL: https://archival-rpc.testnet.near.org
+    nearArchivalNodeURL: https://archival-rpc.testnet.near.org
+    nearNodeURL: http://srpc2-refiner:3030
     signer: %%SIGNER%%
     signerKey: /config/relayer.json
     asyncSendRawTxs: false
@@ -42,6 +43,8 @@ endpoint:
       - debug_traceTransaction
   disabledEndpoints:
     -
+  standaloneproxy:
+    address: "/data.sock"
 rpcNode:
   httpHost: 0.0.0.0
   httpPort: 8545
