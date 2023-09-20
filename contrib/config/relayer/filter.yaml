@@ -1,6 +1,6 @@
 filter:
   IP:
     policy: "deny"
-    list:
+    list: []
   EOA:
   CA:
