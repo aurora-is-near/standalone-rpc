@@ -15,6 +15,6 @@
         "batch_size": 10000
     },
     "socket_server": {
-        "path": "data.sock"
+        "path": "/data/data.sock"
     }
 }

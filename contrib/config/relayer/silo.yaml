@@ -44,7 +44,7 @@ endpoint:
   disabledEndpoints:
     -
   standaloneproxy:
-    address: "/data.sock"
+    address: "/data/refiner/data.sock"
 rpcNode:
   httpHost: 0.0.0.0
   httpPort: 8545
