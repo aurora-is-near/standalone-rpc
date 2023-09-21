@@ -19,6 +19,7 @@ services:
       - ./data/relayer:/data/relayer
       - ./data/refiner:/data/refiner
       - ./near:/near
+      - ./sockets:/sockets
     logging:
       driver: "json-file"
       options:
@@ -42,6 +43,7 @@ services:
       - ./data/refiner:/data # Output directory
       - ./near:/near # Path to Nearcore data
       - ./engine:/engine
+      - ./sockets:/sockets
     logging:
       driver: "json-file"
       options:

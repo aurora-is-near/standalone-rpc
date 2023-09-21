@@ -19,6 +19,7 @@ services:
       - ./data/relayer:/data/relayer
       - ./data/refiner:/data/refiner
       - ./near:/near
+      - ./sockets:/sockets
     logging:
       driver: "json-file"
       options:
@@ -40,6 +41,7 @@ services:
       - ./config/refiner:/config # config files
       - ./data/refiner:/data # Output directory
       - "%%AWS%%:/root/.aws/credentials:ro"
+      - ./sockets:/sockets
     logging:
       driver: "json-file"
       options:
