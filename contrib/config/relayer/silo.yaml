@@ -24,7 +24,7 @@ endpoint:
     nearNodeURL: http://srpc2-refiner:3030
     signer: %%SIGNER%%
     signerKey: /config/relayer.json
-    asyncSendRawTxs: true
+    asyncSendRawTxs: false
     minGasPrice: 0
     minGasLimit: 21000
     gasForNearTxsCall: 300000000000000
@@ -44,7 +44,7 @@ endpoint:
   disabledEndpoints:
     -
   standaloneproxy:
-    address: "/data/refiner/data.sock"
+    address: "/sockets/refiner.sock"
 rpcNode:
   httpHost: 0.0.0.0
   httpPort: 8545
