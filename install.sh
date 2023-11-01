@@ -182,12 +182,12 @@ install() {
 
   if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
     latest=""
-    if [ ! -f "${INSTALL_DIR}/.latest" ]; then
+    if [ ! -f "${INSTALL_DIR}/.latest-db" ]; then
       echo Initial
       latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${chain_id}-relayer-latest)
-      echo "${latest}" > "${INSTALL_DIR}/.latest"
+      echo "${latest}" > "${INSTALL_DIR}/.latest-db"
     fi
-    latest=$(cat "${INSTALL_DIR}/.latest")
+    latest=$(cat "${INSTALL_DIR}/.latest-db")
     if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
       echo "Downloading database snapshot ${latest}..."
       finish=0
@@ -199,6 +199,26 @@ install() {
         fi
       done
     fi
+
+    latest=""
+    if [ ! -f "${INSTALL_DIR}/.latest-state" ]; then
+      echo Initial
+      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${chain_id}-refiner-latest)
+      echo "${latest}" > "${INSTALL_DIR}/.latest-state"
+    fi
+    latest=$(cat "${INSTALL_DIR}/.latest-state")
+    if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
+      echo "Downloading state snapshot ${latest}..."
+      finish=0
+      while [ ${finish} -eq 0 ]; do
+        echo "Fetching, this can take some time..."
+        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-refiner-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/engine/" >> "${INSTALL_DIR}/engine/.lastfile" 2> /dev/null
+        if [ -f "${INSTALL_DIR}/engine/.version" ]; then
+          finish=1
+        fi
+      done
+    fi
+
   fi
 
 
