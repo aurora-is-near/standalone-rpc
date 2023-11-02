@@ -40,7 +40,6 @@ endpoint:
     url: "https://mainnet.aurora.dev:443"
     endpoints:
       - eth_estimateGas
-      - debug_traceTransaction
   disabledEndpoints:
     -
   standaloneproxy:
