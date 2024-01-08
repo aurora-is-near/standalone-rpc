@@ -39,7 +39,7 @@ endpoint:
   proxyEndpoints:
     url: "https://mainnet.aurora.dev:443"
     endpoints:
-      - eth_estimateGas
+      - 
   disabledEndpoints:
     -
   standaloneproxy:
