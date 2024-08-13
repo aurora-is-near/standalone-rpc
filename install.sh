@@ -78,7 +78,7 @@ apply_nearcore_config() {
     mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
     if [ ! -f "${INSTALL_DIR}/near/config.json" ]; then
       echo "Downloading default configuration..."
-      curl -sSf -o "${INSTALL_DIR}/near/config.json" https://files.deploy.aurora.dev/"${near_network}"-new-rpc/config.json
+      curl -sSf -o "${INSTALL_DIR}/near/config.json" https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore-deploy/"${near_network}"/config.json
     fi
     if [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
       echo "Downloading genesis file..."
@@ -90,21 +90,15 @@ apply_nearcore_config() {
       echo "Generating node_key..."
       docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/node_key.json"
     fi
-    if [ ! -f "${INSTALL_DIR}/near/validator_key.json" ]; then
-      echo "Generating validator_key..."
-      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/validator_key.json"
-    fi
     if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
       echo "Downloading near chain snapshot..."
-      latest=$(docker run --rm --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --no-sign-request --numworkers $download_workers cat s3://near-protocol-public/backups/${near_network}/rpc/latest")
-      finish=0
-      while [ ${finish} -eq 0 ]; do
-        echo "Fetching, this can take some time..."
-        docker run --rm --name near_downloader -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/s5cmd --stat --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/* /near/data/"
-        if [ -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
-          finish=1
-        fi
-      done
+      latest=$(docker run --rm --entrypoint /bin/sh amazon/aws-cli -c "aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/latest -")
+      echo "Latest Near snapshot: ${latest}"
+      estimated_size=$(docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws s3 --no-sign-request ls s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ --recursive --summarize | grep 'Total Size:' | awk '{print \$3}'")
+      echo "Estimated size: ${estimated_size}"
+      echo "Fetching, this can take some time..."
+      docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws configure set default.s3.max_concurrent_requests ${download_workers} && exec aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ /near/data/ --recursive"
+      echo "Downloaded near chain snapshot"
     fi
   fi
 }
