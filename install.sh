@@ -12,6 +12,7 @@ migrate_from=""
 use_aurora_snapshot=1
 use_near_snapshot=1
 download_workers=256
+max_bandwidth=10 #MB/s
 
 trap "echo Exited!; exit 2;" INT TERM
 
@@ -97,7 +98,7 @@ apply_nearcore_config() {
       estimated_size=$(docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws s3 --no-sign-request ls s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ --recursive --summarize | grep 'Total Size:' | awk '{print \$3}'")
       echo "Estimated size: ${estimated_size}"
       echo "Fetching, this can take some time..."
-      docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws configure set default.s3.max_concurrent_requests ${download_workers} && exec aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ /near/data/ --recursive"
+      docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws configure set default.s3.max_bandwidth ${max_bandwidth}MB/s && exec aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ /near/data/ --recursive"
       echo "Downloaded near chain snapshot"
     fi
   fi
@@ -188,7 +189,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
+        curl --limit-rate ${max_bandwidth}M -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
           finish=1
         fi
@@ -207,7 +208,7 @@ install() {
       finish=0
       while [ ${finish} -eq 0 ]; do
         echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-refiner-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/engine/" >> "${INSTALL_DIR}/engine/.lastfile" 2> /dev/null
+        curl --limit-rate ${max_bandwidth}M -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-refiner-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/engine/" >> "${INSTALL_DIR}/engine/.lastfile" 2> /dev/null
         if [ -f "${INSTALL_DIR}/engine/.version" ]; then
           finish=1
         fi
