@@ -58,14 +58,20 @@ rpcNode:
   wsPathPrefix: "*"
   maxBatchRequests: 1000
 indexer:
-  sourceFolder: /data/refiner/
-  subFolderBatchSize: 10000   # should match with Aurora refiner batch size, see https://github.com/aurora-is-near/borealis-engine-lib
-  keepFiles: true
+  source: "%%SOURCE%%"
   genesisBlock: 37157758      # 37157758 = Aurora Genesis
   fromBlock: 37157758         # cannot be lower than Genesis
   toBlock: 0                  # 0 = indefinite
+
   retryCountOnFailure: 10
   waitForBlockMs: 500
+
+  keepFiles: true
+  sourceFolder: /data/refiner/
+  subFolderBatchSize: 10000   # should match with Aurora refiner batch size, see https://github.com/aurora-is-near/borealis-engine-lib
+
+  blocksApiUrl:   "%%BLOCKS_API_URL%%"
+  blocksApiToken: "%%BLOCKS_API_TOKEN%%"
 backupIndexer:
   indexFromBackup: false
   backupDir: /data/backup/v2_mainnet_aurora_blocks

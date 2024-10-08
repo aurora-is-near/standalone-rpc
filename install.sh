@@ -7,7 +7,7 @@ network="mainnet"
 near_network="mainnet"
 silo_config_file=""
 chain_id="1313161554"
-near_source="nearcore" # nearcore or datalake
+near_source="nearcore" # nearcore | datalake | blocksapi
 migrate_from=""
 use_aurora_snapshot=1
 use_near_snapshot=1
@@ -119,6 +119,10 @@ apply_datalake_config() {
   mv "${INSTALL_DIR}/docker-compose.yaml2" "${INSTALL_DIR}/docker-compose.yaml"
 }
 
+apply_blocksapi_config() {
+
+}
+
 install() {
 
   if [ -f "${VERSION_FILE}" ]; then
@@ -169,11 +173,19 @@ install() {
     near_network="$network"
   fi
 
-  if [ "${near_source}" = "nearcore" ]; then
-    apply_nearcore_config
-  else
-    apply_datalake_config
-  fi
+  case "${near_source}" in
+    "nearcore")
+      apply_nearcore_config
+      ;;
+    "datalake")
+      apply_datalake_config
+      ;;
+    "blocksapi")
+      apply_blocksapi_config
+      ;;
+    *)
+      echo "Invalid near source: ${near_source}" 1>&2
+  esac
 
   if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
     latest=""
@@ -264,7 +276,7 @@ usage() {
   printf ' %s\t%s\n\n' "-n {mainnet|testnet|silo}" "network to use, default is mainnet."
   printf ' %s\t\t\t%s\n\t\t\t\t%s\n\n' "-f {path}" "for silo networks, this is the path to your silo configuration file." \
   "This option is valid only if silo network is used, and '-s' option is ignored if this option is given."
-  printf ' %s\t\t%s\n\n' "-r {nearcore|datalake}" "near source for indexing, default is nearcore."
+  printf ' %s\t\t%s\n\n' "-r {nearcore|datalake|blocksapi}" "near source for indexing, default is nearcore."
   printf ' %s\t\t\t%s\n\t\t\t\t%s\n\n' "-m {path}" "use the existing nearcore data at 'path' instead of downloading snapshots from scratch." \
   "This option is valid only if nearcore config is used, and '-s' option is ignored if this option is given."
   printf ' %s\t\t%s\n\t\t\t\t%s\n\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
@@ -294,7 +306,7 @@ while getopts ":n:r:m:f:w:svh" opt; do
       ;;
     r)
       near_source="${OPTARG}"
-      if [ "$near_source" != "nearcore" ] && [ "$near_source" != "datalake" ]; then
+      if [ "$near_source" != "nearcore" ] && [ "$near_source" != "datalake" ] && [ "$near_source" != "blocksapi" ]; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
         exit 1
