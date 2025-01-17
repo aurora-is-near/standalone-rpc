@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: aurora-is-near/nearcore
+  IMAGE_NAME: ${{ github.repository }}/nearcore
   VERSION: ${{ github.event.inputs.tag || github.event.release.tag_name || '' }}
 
 jobs:
