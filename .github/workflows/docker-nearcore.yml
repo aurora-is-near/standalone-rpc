@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v8
           file: contrib/config/build/Dockerfile.neard
           push: true
           tags: ${{ steps.meta.outputs.tags }}
