@@ -71,33 +71,22 @@ apply_silo_config() {
 }
 
 apply_nearcore_config() {
+  echo "network: $near_network"
   if [ "x$migrate_from" != "x" ]; then
     ln -s "$migrate_from/near" "${INSTALL_DIR}/near"
     ln -s "$migrate_from/engine" "${INSTALL_DIR}/engine"
   else
     mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
-    if [ ! -f "${INSTALL_DIR}/near/config.json" ]; then
-      echo "Downloading default configuration..."
-      curl -sSf -o "${INSTALL_DIR}/near/config.json" https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore-deploy/"${near_network}"/config.json
-    fi
-    if [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
-      echo "Downloading genesis file..."
-      curl -sSf -o "${INSTALL_DIR}/near/genesis.json.gz" https://files.deploy.aurora.dev/"${near_network}"-new-rpc/genesis.json.gz
-      echo "Extracting genesis file..."
-      gzip -d "${INSTALL_DIR}/near/genesis.json.gz"
-    fi
-    if [ ! -f "${INSTALL_DIR}/near/node_key.json" ]; then
-      echo "Generating node_key..."
-      docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey node%.${near_postfix} > /near/node_key.json"
+    if [ ! -f "${INSTALL_DIR}/near/config.json" ] || [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
+      echo "Initializing nearcore configuration..."
+      docker run --rm --name config_init \
+        -v "$(pwd)/${INSTALL_DIR}"/near:/root/.near:rw \
+        ghcr.io/aurora-is-near/standalone-rpc/nearcore:latest \
+        /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
     fi
     if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
       echo "Downloading near chain snapshot..."
-      latest=$(docker run --rm --entrypoint /bin/sh amazon/aws-cli -c "aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/latest -")
-      echo "Latest Near snapshot: ${latest}"
-      estimated_size=$(docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws s3 --no-sign-request ls s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ --recursive --summarize | grep 'Total Size:' | awk '{print \$3}'")
-      echo "Estimated size: ${estimated_size}"
-      echo "Fetching, this can take some time..."
-      docker run  --name snapshot_downloader --rm -v "$(pwd)/${INSTALL_DIR}/near:/near:rw" --entrypoint /bin/sh amazon/aws-cli -c "aws configure set default.s3.max_concurrent_requests ${download_workers} && exec aws s3 --no-sign-request cp s3://near-protocol-public/backups/${near_network}/rpc/${latest}/ /near/data/ --recursive"
+      CHAIN_ID="${near_network}" SERVICE="near" DATA_PATH="${INSTALL_DIR}/near/data" "${src_dir}/bin/download_rclone.sh"
       echo "Downloaded near chain snapshot"
     fi
   fi
@@ -176,50 +165,25 @@ install() {
   fi
 
   if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
-    latest=""
-    if [ ! -f "${INSTALL_DIR}/.latest-db" ]; then
-      echo Initial
-      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${chain_id}-relayer-latest)
-      echo "${latest}" > "${INSTALL_DIR}/.latest-db"
-    fi
-    latest=$(cat "${INSTALL_DIR}/.latest-db")
     if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-      echo "Downloading database snapshot ${latest}..."
-      finish=0
-      while [ ${finish} -eq 0 ]; do
-        echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-relayer-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/data/relayer/" >> "${INSTALL_DIR}/data/relayer/.lastfile" 2> /dev/null
-        if [ -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-          finish=1
-        fi
-      done
+      echo "Downloading snapshot for chain ${chain_id}, block ${latest}"
+      echo "Fetching, this can take some time..."
+      CHAIN_ID="${chain_id}" SERVICE="relayer" DATA_PATH="${INSTALL_DIR}/data/relayer" "${src_dir}/bin/download_rclone.sh"
     fi
 
-    latest=""
-    if [ ! -f "${INSTALL_DIR}/.latest-state" ]; then
-      echo Initial
-      latest=$(curl -sSf https://snapshots.deploy.aurora.dev/snapshots/${chain_id}-refiner-latest)
-      echo "${latest}" > "${INSTALL_DIR}/.latest-state"
-    fi
-    latest=$(cat "${INSTALL_DIR}/.latest-state")
     if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
-      echo "Downloading state snapshot ${latest}..."
-      finish=0
-      while [ ${finish} -eq 0 ]; do
-        echo "Fetching, this can take some time..."
-        curl -#Sf https://snapshots.deploy.aurora.dev/158c1b69348fda67682197791/${chain_id}-refiner-${latest}/data.tar | tar -xv -C "${INSTALL_DIR}/engine/" >> "${INSTALL_DIR}/engine/.lastfile" 2> /dev/null
-        if [ -f "${INSTALL_DIR}/engine/.version" ]; then
-          finish=1
-        fi
-      done
+      echo "Downloading state snapshot ${latest}, block ${latest}"
+      echo "Fetching, this can take some time..."
+      CHAIN_ID="${chain_id}" SERVICE="refiner" DATA_PATH="${INSTALL_DIR}/engine" "${src_dir}/bin/download_rclone.sh"
     fi
-
   fi
-
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.json" ]; then
     echo "Generating relayer key..."
-    docker run --rm --name near_keygen -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw --entrypoint /bin/sh nearaurora/srpc2-relayer -c "/usr/local/bin/nearkey > /config/relayer.json"
+    docker run --pull=always --rm --name near_keygen \
+      -v "$(pwd)/${INSTALL_DIR}"/config/relayer:/config:rw \
+      --entrypoint /bin/sh ghcr.io/aurora-is-near/relayer2-public \
+      -c "/app/app generate-key --output=/config/relayer.json"
   fi
 
   account_id=$(grep "account_id" "${INSTALL_DIR}/config/relayer/relayer.json" | cut -d\" -f4)
