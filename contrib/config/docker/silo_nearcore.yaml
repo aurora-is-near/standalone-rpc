@@ -1,12 +1,7 @@
----
-version: '3.8'
 services:
   relayer:
-    image: nearaurora/srpc2-relayer
+    image: ghcr.io/aurora-is-near/relayer2-public
     container_name: srpc2-relayer
-#    pull_policy: missing
-#    build:
-#      dockerfile: ../contrib/config/build/Dockerfile.relayer
     restart: unless-stopped
     init: true
     environment:
@@ -27,13 +22,11 @@ services:
         max-file: "5"
     networks:
       static-network:
+    command: /app/app start -c /config/relayer.yaml
   refiner:
     image: nearaurora/srpc2-refiner
     container_name: srpc2-refiner
     entrypoint: ["/docker-entrypoint.sh", "%%SILO_FROM_BLOCK%%"]
-#    pull_policy: missing
-#    build:
-#      dockerfile: ../contrib/config/build/Dockerfile.refiner
     restart: unless-stopped
     environment:
       - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
