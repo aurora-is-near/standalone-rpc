@@ -86,7 +86,13 @@ apply_nearcore_config() {
     fi
     if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
       echo "Downloading near chain snapshot..."
-      CHAIN_ID="${near_network}" SERVICE="near" DATA_PATH="${INSTALL_DIR}/near/data" "${src_dir}/bin/download_rclone.sh"
+      docker run --rm --pull=always \
+        --init \
+        -v "$(pwd)/${INSTALL_DIR}/near/data:/data" \
+        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        --entrypoint=/bin/ash \
+        rclone/rclone \
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${near_network} SERVICE=near DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
       echo "Downloaded near chain snapshot"
     fi
   fi
@@ -168,13 +174,25 @@ install() {
     if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
       echo "Downloading snapshot for chain ${chain_id}, block ${latest}"
       echo "Fetching, this can take some time..."
-      CHAIN_ID="${chain_id}" SERVICE="relayer" DATA_PATH="${INSTALL_DIR}/data/relayer" "${src_dir}/bin/download_rclone.sh"
+      docker run --rm --pull=always \
+        --init \
+        -v "$(pwd)/${INSTALL_DIR}/data/relayer:/data" \
+        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        --entrypoint=/bin/ash \
+        rclone/rclone \
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=relayer DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
     fi
 
     if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
       echo "Downloading state snapshot ${latest}, block ${latest}"
       echo "Fetching, this can take some time..."
-      CHAIN_ID="${chain_id}" SERVICE="refiner" DATA_PATH="${INSTALL_DIR}/engine" "${src_dir}/bin/download_rclone.sh"
+      docker run --rm --pull=always \
+        --init \
+        -v "$(pwd)/${INSTALL_DIR}/engine:/data" \
+        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        --entrypoint=/bin/ash \
+        rclone/rclone \
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=refiner DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
     fi
   fi
 

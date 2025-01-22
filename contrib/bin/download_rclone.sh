@@ -1,5 +1,18 @@
-#!/usr/bin/env bash
+#!/bin/ash
 set -e
+
+# Better signal handling
+cleanup() {
+    local signal=$1
+    echo "Received signal $signal, cleaning up..."
+    if [ -n "$rclone_pid" ]; then
+        kill -TERM "$rclone_pid" 2>/dev/null || true
+    fi
+    exit 1
+}
+
+trap 'cleanup INT' INT
+trap 'cleanup TERM' TERM
 
 # The script downloads the RPC snapshot from the FASTNEAR snapshots.
 # It uses rclone for parallel downloads and retries failed downloads.
@@ -11,7 +24,7 @@ set -e
 # - Set $TPSLIMIT to the maximum number of HTTP new actions per second. (default: 4096)
 # - Set $BWLIMIT to the maximum bandwidth to use for download in case you want to limit it. (default: 10G)
 # - Set $DATA_PATH to the path where you want to download the snapshot (default: ~/.near/data)
-# - Set $HTTP_URL to the base URL for downloading snapshots (default: https://snapshot.neardata.xyz)
+# - Set $HTTP_URL to the base URL for downloading snapshots
 # - Set $SERVICE to the type of service you want to download (default: near)
 # - Set $PREFIX to the specific prefix for the service
 
@@ -68,36 +81,45 @@ main() {
     echo "Downloading snapshot files..."
   fi
 
-  rclone_args=(
-    --tpslimit $TPSLIMIT
-    --bwlimit $BWLIMIT
-    --no-traverse
-    --transfers $THREADS
-    --checkers $THREADS
-    --buffer-size 128M
-    --http-url $HTTP_URL
-    --retries 10
-    --retries-sleep 1s
-    --low-level-retries 10
-    --progress
-    --stats-one-line
-    --contimeout=1m
-    --disable-http2
-  )
+  RCLONE_ARGS="--tpslimit $TPSLIMIT"
+  RCLONE_ARGS="$RCLONE_ARGS --bwlimit $BWLIMIT"
+  RCLONE_ARGS="$RCLONE_ARGS --no-traverse"
+  RCLONE_ARGS="$RCLONE_ARGS --transfers $THREADS"
+  RCLONE_ARGS="$RCLONE_ARGS --checkers $THREADS"
+  RCLONE_ARGS="$RCLONE_ARGS --buffer-size 128M"
+  RCLONE_ARGS="$RCLONE_ARGS --http-url $HTTP_URL"
+  RCLONE_ARGS="$RCLONE_ARGS --retries 10"
+  RCLONE_ARGS="$RCLONE_ARGS --retries-sleep 1s"
+  RCLONE_ARGS="$RCLONE_ARGS --low-level-retries 10"
+  RCLONE_ARGS="$RCLONE_ARGS --progress"
+  RCLONE_ARGS="$RCLONE_ARGS --stats 30s"
+  RCLONE_ARGS="$RCLONE_ARGS --stats-one-line"
+  RCLONE_ARGS="$RCLONE_ARGS --stats-unit bytes"
+  RCLONE_ARGS="$RCLONE_ARGS --contimeout=1m"
+  RCLONE_ARGS="$RCLONE_ARGS --disable-http2"
 
   if [ "$SERVICE" = "near" ]; then
-    rclone_args+=(--files-from=$FILES_PATH)
+    RCLONE_ARGS="$RCLONE_ARGS --files-from=$FILES_PATH"
   else
-    rclone_args+=(--exclude "LOG.old*")
+    RCLONE_ARGS="$RCLONE_ARGS --exclude LOG.old*"
   fi
 
-  rclone copy "${rclone_args[@]}" :http:$PREFIX/$LATEST/ $DATA_PATH
+  # Run rclone in background and capture PID
+  # shellcheck disable=SC2086
+  rclone copy $RCLONE_ARGS :http:$PREFIX/$LATEST/ $DATA_PATH &
+  rclone_pid=$!
+
+  # Wait for rclone to finish
+  wait $rclone_pid || {
+    echo "Error: rclone copy failed"
+    exit 1
+  }
 
   if [ "$SERVICE" = "near" ]; then
     ACTUAL_NUM_FILES=$(find $DATA_PATH -type f | wc -l)
     echo "Downloaded $ACTUAL_NUM_FILES files, expected $EXPECTED_NUM_FILES"
 
-    if [[ $ACTUAL_NUM_FILES -ne $EXPECTED_NUM_FILES ]]; then
+    if [ "$ACTUAL_NUM_FILES" -ne "$EXPECTED_NUM_FILES" ]; then
       echo "Error: Downloaded files count mismatch"
       exit 1
     fi
