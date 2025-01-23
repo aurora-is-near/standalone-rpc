@@ -24,7 +24,7 @@ services:
       static-network:
     command: /app/app start -c /config/relayer.yaml
   refiner:
-    image: nearaurora/srpc2-refiner
+    image: ghcr.io/aurora-is-near/borealis-engine-lib
     container_name: srpc2-refiner
     restart: unless-stopped
     environment:
