@@ -89,10 +89,9 @@ apply_nearcore_config() {
       docker run --rm --pull=always \
         --init \
         -v "$(pwd)/${INSTALL_DIR}/near/data:/data" \
-        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
         --entrypoint=/bin/ash \
         rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${near_network} SERVICE=near DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/fastnear/static/refs/heads/main/down_rclone.sh > /download_rclone.sh && chmod +x /download_rclone.sh && CHAIN_ID=${near_network} RPC_TYPE=fast-rpc DATA_PATH=/data /bin/ash /download_rclone.sh & pid=\$! && wait \$pid"
       echo "Downloaded near chain snapshot"
     fi
   fi
