@@ -1,6 +1,5 @@
 #!/bin/sh
 
-src_dir="contrib"
 near_postfix="near"
 
 network="mainnet"
@@ -15,12 +14,12 @@ download_workers=256
 
 trap "echo Exited!; exit 2;" INT TERM
 
-if [ ! -d "./${src_dir}" ]; then
+if [ ! -d "./contrib" ]; then
 	echo "Run ./install.sh from original git repository only!"
 	exit 1
 fi
 
-. ./${src_dir}/bin/common.sh
+. ./contrib/bin/common.sh
 
 valid_silo_config() {
   if [ ! -f "$1" ]; then
@@ -81,19 +80,21 @@ apply_nearcore_config() {
       echo "Initializing nearcore configuration..."
       docker run --rm --name config_init \
         -v "$(pwd)/${INSTALL_DIR}"/near:/root/.near:rw \
-        ghcr.io/aurora-is-near/standalone-rpc/nearcore:latest \
+        nearprotocol/nearcore:latest \
         /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
     fi
-    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
-      echo "Downloading near chain snapshot..."
+    
+    # Download nearcore snapshot if enabled and not already downloaded
+    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/.version" ]; then
+      echo "Downloading nearcore snapshot for ${near_network}..."
+      echo "Fetching, this can take some time..."
       docker run --rm --pull=always \
         --init \
-        -v "$(pwd)/${INSTALL_DIR}/near/data:/data" \
-        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        -v "$(pwd)/${INSTALL_DIR}/near:/root/.near:rw" \
+        -v "$(pwd)/contrib/bin/download_near_snapshot.sh:/download_near_snapshot.sh" \
         --entrypoint=/bin/ash \
         rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${near_network} SERVICE=near DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
-      echo "Downloaded near chain snapshot"
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_near_snapshot.sh && CHAIN_ID=${chain_id} THREADS=${download_workers} DATA_PATH=/root/.near/data /download_near_snapshot.sh & pid=\$! && wait \$pid"
     fi
   fi
 }
@@ -137,23 +138,23 @@ install() {
             "${INSTALL_DIR}/config/nginx" 2> /dev/null
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.yaml" ]; then
-    cp "./${src_dir}/config/relayer/${network}.yaml" "${INSTALL_DIR}/config/relayer/relayer.yaml"
+    cp "./contrib/config/relayer/${network}.yaml" "${INSTALL_DIR}/config/relayer/relayer.yaml"
   fi
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/filter.yaml" ]; then
-    cp "./${src_dir}/config/relayer/filter.yaml" "${INSTALL_DIR}/config/relayer/filter.yaml"
+    cp "./contrib/config/relayer/filter.yaml" "${INSTALL_DIR}/config/relayer/filter.yaml"
   fi
 
   if [ ! -f "${INSTALL_DIR}/config/refiner/refiner.json" ]; then
-    cp "./${src_dir}/config/refiner/${network}_${near_source}.json" "${INSTALL_DIR}/config/refiner/refiner.json"
+    cp "./contrib/config/refiner/${network}_${near_source}.json" "${INSTALL_DIR}/config/refiner/refiner.json"
   fi
 
   if [ ! -f "${INSTALL_DIR}/config/nginx/endpoint.conf" ]; then
-    cp "./${src_dir}/config/nginx/${network}.conf" "${INSTALL_DIR}/config/nginx/endpoint.conf"
+    cp "./contrib/config/nginx/${network}.conf" "${INSTALL_DIR}/config/nginx/endpoint.conf"
   fi
 
   if [ ! -f "${INSTALL_DIR}/docker-compose.yaml" ]; then
-    cp "./${src_dir}/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
+    cp "./contrib/config/docker/${network}_${near_source}.yaml" "${INSTALL_DIR}/docker-compose.yaml"
   fi
 
   if [ "${network}" = "silo" ]; then
@@ -177,7 +178,7 @@ install() {
       docker run --rm --pull=always \
         --init \
         -v "$(pwd)/${INSTALL_DIR}/data/relayer:/data" \
-        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        -v "$(pwd)/contrib/bin/download_rclone.sh:/download_rclone.sh" \
         --entrypoint=/bin/ash \
         rclone/rclone \
         -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=relayer DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
@@ -189,7 +190,7 @@ install() {
       docker run --rm --pull=always \
         --init \
         -v "$(pwd)/${INSTALL_DIR}/engine:/data" \
-        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
+        -v "$(pwd)/contrib/bin/download_rclone.sh:/download_rclone.sh" \
         --entrypoint=/bin/ash \
         rclone/rclone \
         -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=refiner DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
@@ -208,8 +209,7 @@ install() {
   sed "s/%%SIGNER%%/${account_id}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
   mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
 
-  if [ $use_aurora_snapshot -eq 0 -a $use_near_snapshot -eq 0 ] \
-    || [ $use_near_snapshot -eq 1 -a ${near_source} = "nearcore" -a -f "${INSTALL_DIR}/near/data/CURRENT" -a -f "${INSTALL_DIR}/data/relayer/.version" ] \
+  if [ $use_aurora_snapshot -eq 0 ] \
     || [ ${near_source} = "datalake" -a -f "${INSTALL_DIR}/data/relayer/.version" ]; then
     echo "Setup complete [${network}, ${near_source}]"
   fi
@@ -220,10 +220,10 @@ install() {
     "$migrate_from"/stop.sh
   fi
 
-  cp "./${src_dir}/bin/start.sh" "${INSTALL_DIR}/start.sh"
-  cp "./${src_dir}/bin/stop.sh" "${INSTALL_DIR}/stop.sh"
-  cp "./${src_dir}/bin/common.sh" "${INSTALL_DIR}/common.sh"
-  cp "./${src_dir}/bin/support.sh" "${INSTALL_DIR}/support.sh"
+  cp "./contrib/bin/start.sh" "${INSTALL_DIR}/start.sh"
+  cp "./contrib/bin/stop.sh" "${INSTALL_DIR}/stop.sh"
+  cp "./contrib/bin/common.sh" "${INSTALL_DIR}/common.sh"
+  cp "./contrib/bin/support.sh" "${INSTALL_DIR}/support.sh"
 
   echo "Starting..."
   ./"${INSTALL_DIR}"/start.sh
@@ -251,17 +251,20 @@ usage() {
   "This option is valid only if nearcore config is used, and '-s' option is ignored if this option is given."
   printf ' %s\t\t%s\n\t\t\t\t%s\n\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
   "NOTE: On some OS and HW configurations, default number of workers may cause high CPU consumption during download."
-  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
+  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
   "NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option" \
   "if near source is selected as datalake otherwise refiner will not be sync with near core from scratch."
+  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\n' "-N" "if specified then nearcore snapshots are ignored during installation, default downloads and uses nearcore snapshots." \
+  "NOTE: Ignoring nearcore snapshots means the nearcore node will sync from genesis, which can take a very long time."
   printf ' %s\t\t\t\t%s\n\n' "-v" "prints version"
   printf ' %s\t\t\t\t%s\n\n' "-h" "prints usage"
   printf 'Examples\n'
   printf ' %s\t\t-> %s\n\n' "./install.sh -n mainnet -r datalake -s" "use mainnet with near data lake but do not download snapshots"
   printf ' %s\t\t-> %s\n\n' "./install.sh -n silo -f ./silo.conf" "use sile network whose config is defined in silo.conf, near source for indexing is nearcore"
+  printf ' %s\t\t-> %s\n\n' "./install.sh -n mainnet -r nearcore -N" "use mainnet with nearcore but do not download nearcore snapshots"
 }
 
-while getopts ":n:r:m:f:w:svh" opt; do
+while getopts ":n:r:m:f:w:sNvh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
@@ -300,6 +303,8 @@ while getopts ":n:r:m:f:w:svh" opt; do
       ;;
     s)
       use_aurora_snapshot=0
+      ;;
+    N)
       use_near_snapshot=0
       ;;
     f)
@@ -328,7 +333,7 @@ done
 shift $((OPTIND-1))
 
 if [ "${network}" = "silo" ] && ! valid_silo_config "$silo_config_file"; then
-  echo "Invalid silo config, $silo_config_file. For more information, see template config ./${src_dir}/silo/template.conf"
+  echo "Invalid silo config, $silo_config_file. For more information, see template config ./contrib/silo/template.conf"
   exit 1
 fi
 
