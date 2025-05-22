@@ -78,17 +78,25 @@ apply_nearcore_config() {
   else
     mkdir -p "${INSTALL_DIR}/near" "${INSTALL_DIR}/engine" 2> /dev/null
     if [ ! -f "${INSTALL_DIR}/near/config.json" ] || [ ! -f "${INSTALL_DIR}/near/genesis.json" ]; then
-      echo "Initializing nearcore configuration..."
+      echo "Fetching NEAR version..."
+      RPC_URL="https://rpc.${near_network}.near.org"
+      NEAR_VERSION=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
+        "jsonrpc": "2.0",
+        "method": "status",
+        "params": [],
+        "id": "dontcare"
+      }' | jq -r '.result.version.build')
+
+      echo "Initializing nearcore configuration with version ${NEAR_VERSION}..."
       docker run --rm --name config_init \
         -v "$(pwd)/${INSTALL_DIR}"/near:/root/.near:rw \
-        nearprotocol/nearcore:latest \
+        nearprotocol/nearcore:${NEAR_VERSION} \
         /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
 
       # Fix permissions after Docker creates the files
       sudo chown -R $(id -u):$(id -g) "${INSTALL_DIR}/near"
 
       echo "Fetching boot nodes..."
-      RPC_URL="https://rpc.${near_network}.near.org"
       BOOT_NODES=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
         "jsonrpc": "2.0",
         "method": "network_info",
