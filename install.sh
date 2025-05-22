@@ -81,18 +81,25 @@ apply_nearcore_config() {
       echo "Initializing nearcore configuration..."
       docker run --rm --name config_init \
         -v "$(pwd)/${INSTALL_DIR}"/near:/root/.near:rw \
-        ghcr.io/aurora-is-near/standalone-rpc/nearcore:latest \
+        nearprotocol/nearcore:latest \
         /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
-    fi
-    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/CURRENT" ]; then
-      echo "Downloading near chain snapshot..."
-      docker run --rm --pull=always \
-        --init \
-        -v "$(pwd)/${INSTALL_DIR}/near/data:/data" \
-        --entrypoint=/bin/ash \
-        rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/fastnear/static/refs/heads/main/down_rclone.sh > /download_rclone.sh && chmod +x /download_rclone.sh && CHAIN_ID=${near_network} RPC_TYPE=fast-rpc DATA_PATH=/data /bin/ash /download_rclone.sh & pid=\$! && wait \$pid"
-      echo "Downloaded near chain snapshot"
+
+      echo "Fetching boot nodes..."
+      RPC_URL="https://rpc.${near_network}.near.org"
+      BOOT_NODES=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
+        "jsonrpc": "2.0",
+        "method": "network_info",
+        "params": [],
+        "id": "dontcare"
+      }' | jq -r '.result.active_peers as $list1 | .result.known_producers as $list2 |
+          $list1[] as $active_peer | $list2[] |
+          select(.peer_id == $active_peer.id) |
+          "\(.peer_id)@\($active_peer.addr)"' | paste -sd "," -)
+
+      echo "Updating config with boot nodes..."
+      jq --arg newBootNodes "$BOOT_NODES" '.network.boot_nodes = $newBootNodes' "${INSTALL_DIR}/near/config.json" > "${INSTALL_DIR}/near/config.json.tmp" && \
+      mv "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup" && \
+      mv "${INSTALL_DIR}/near/config.json.tmp" "${INSTALL_DIR}/near/config.json"
     fi
   fi
 }
@@ -207,8 +214,7 @@ install() {
   sed "s/%%SIGNER%%/${account_id}/" "${INSTALL_DIR}/config/relayer/relayer.yaml" > "${INSTALL_DIR}/config/relayer/relayer.yaml2" && \
   mv "${INSTALL_DIR}/config/relayer/relayer.yaml2" "${INSTALL_DIR}/config/relayer/relayer.yaml"
 
-  if [ $use_aurora_snapshot -eq 0 -a $use_near_snapshot -eq 0 ] \
-    || [ $use_near_snapshot -eq 1 -a ${near_source} = "nearcore" -a -f "${INSTALL_DIR}/near/data/CURRENT" -a -f "${INSTALL_DIR}/data/relayer/.version" ] \
+  if [ $use_aurora_snapshot -eq 0 ] \
     || [ ${near_source} = "datalake" -a -f "${INSTALL_DIR}/data/relayer/.version" ]; then
     echo "Setup complete [${network}, ${near_source}]"
   fi
@@ -250,7 +256,7 @@ usage() {
   "This option is valid only if nearcore config is used, and '-s' option is ignored if this option is given."
   printf ' %s\t\t%s\n\t\t\t\t%s\n\n' "-w {number [1-256]}" "number of workers used for downloading near snapshots, default is 256." \
   "NOTE: On some OS and HW configurations, default number of workers may cause high CPU consumption during download."
-  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
+  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
   "NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option" \
   "if near source is selected as datalake otherwise refiner will not be sync with near core from scratch."
   printf ' %s\t\t\t\t%s\n\n' "-v" "prints version"
@@ -299,7 +305,6 @@ while getopts ":n:r:m:f:w:svh" opt; do
       ;;
     s)
       use_aurora_snapshot=0
-      use_near_snapshot=0
       ;;
     f)
       silo_config_file="${OPTARG}"
