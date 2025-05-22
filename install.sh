@@ -99,10 +99,10 @@ apply_nearcore_config() {
           select(.peer_id == $active_peer.id) |
           "\(.peer_id)@\($active_peer.addr)"' | paste -sd "," -)
 
-      echo "Updating config with boot nodes..."
-      jq --arg newBootNodes "$BOOT_NODES" '.network.boot_nodes = $newBootNodes' "${INSTALL_DIR}/near/config.json" > "${INSTALL_DIR}/near/config.json.tmp" && \
-      mv "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup" && \
-      mv "${INSTALL_DIR}/near/config.json.tmp" "${INSTALL_DIR}/near/config.json"
+      echo "Updating config with boot nodes and telemetry..."
+      docker run --rm -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
+        eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = []' /data/config.json && \
+      cp "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup"
     fi
   fi
 }
