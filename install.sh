@@ -84,6 +84,9 @@ apply_nearcore_config() {
         nearprotocol/nearcore:latest \
         /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
 
+      # Fix permissions after Docker creates the files
+      sudo chown -R $(id -u):$(id -g) "${INSTALL_DIR}/near"
+
       echo "Fetching boot nodes..."
       RPC_URL="https://rpc.${near_network}.near.org"
       BOOT_NODES=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
