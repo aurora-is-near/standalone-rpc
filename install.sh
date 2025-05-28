@@ -151,6 +151,7 @@ install() {
             "${INSTALL_DIR}/config/relayer" \
             "${INSTALL_DIR}/config/refiner" \
             "${INSTALL_DIR}/engine" \
+            "${INSTALL_DIR}/near" \
             "${INSTALL_DIR}/config/nginx" 2> /dev/null
 
   if [ ! -f "${INSTALL_DIR}/config/relayer/relayer.yaml" ]; then
