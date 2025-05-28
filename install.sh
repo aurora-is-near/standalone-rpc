@@ -89,9 +89,9 @@ apply_nearcore_config() {
 
       echo "Initializing nearcore configuration with version ${NEAR_VERSION}..."
       docker run --rm --name config_init \
-        -v "$(pwd)/${INSTALL_DIR}"/near:/root/.near:rw \
+        -v "$(pwd)/${INSTALL_DIR}"/near:/near:rw \
         nearprotocol/nearcore:${NEAR_VERSION} \
-        /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
+        /usr/local/bin/neard --home /near init --chain-id "${near_network}" --download-genesis --download-config rpc
 
       # Fix permissions after Docker creates the files
       sudo chown -R $(id -u):$(id -g) "${INSTALL_DIR}/near"
