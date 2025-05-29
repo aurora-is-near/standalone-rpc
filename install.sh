@@ -85,7 +85,7 @@ apply_nearcore_config() {
         "method": "status",
         "params": [],
         "id": "dontcare"
-      }' | docker run --rm -i stedolan/jq:latest -r '.result.version.build')
+      }' | docker run --rm -i mikefarah/yq:latest eval -r '.result.version.build')
 
       echo "Initializing nearcore configuration with version ${NEAR_VERSION}..."
       docker run --rm --name config_init \
@@ -102,7 +102,7 @@ apply_nearcore_config() {
         "method": "network_info",
         "params": [],
         "id": "dontcare"
-      }' | docker run --rm -i stedolan/jq:latest -r '.result.active_peers as $list1 | .result.known_producers as $list2 |
+      }' | docker run --rm -i mikefarah/yq:latest eval -r '.result.active_peers as $list1 | .result.known_producers as $list2 |
           $list1[] as $active_peer | $list2[] |
           select(.peer_id == $active_peer.id) |
           "\(.peer_id)@\($active_peer.addr)"' | paste -sd "," -)
