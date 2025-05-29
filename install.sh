@@ -102,10 +102,7 @@ apply_nearcore_config() {
         "method": "network_info",
         "params": [],
         "id": "dontcare"
-      }' | docker run --rm -i mikefarah/yq:latest eval -r '.result.active_peers as $list1 | .result.known_producers as $list2 |
-          $list1[] as $active_peer | $list2[] |
-          select(.peer_id == $active_peer.id) |
-          "\(.peer_id)@\($active_peer.addr)"' | paste -sd "," -)
+      }' | docker run --rm -i mikefarah/yq:latest eval -r '.result as $r | [$r.active_peers[] | select(.id as $id | $r.known_producers[] | select(.peer_id == $id)) | "\(.id)@\(.addr)"] | join(",")' | paste -sd "," -)
 
       echo "Updating config with boot nodes, telemetry and gc settings..."
       docker run --rm -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
