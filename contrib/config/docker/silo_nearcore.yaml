@@ -44,6 +44,7 @@ services:
         max-file: "5"
     ports:
       - '127.0.0.1:23030:3030'
+      - '127.0.0.1:24567:24567'
     networks:
       static-network:
         ipv4_address: 10.123.49.254
