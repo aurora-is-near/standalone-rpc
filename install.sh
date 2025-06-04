@@ -104,10 +104,35 @@ apply_nearcore_config() {
 
       echo "Updating config with boot nodes, telemetry and gc settings..."
       docker run --rm -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
-        eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = [] | .gc_num_epochs_to_keep = 15' /data/config.json && \
+        eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = []' /data/config.json && \
       cp "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup"
     fi
   fi
+  # Export NEAR_VERSION for use in run_nearcore
+  export NEAR_VERSION
+}
+
+run_nearcore() {
+  echo "Starting nearcore..."
+  # Run nearcore in the background
+  docker run -d --name nearcore \
+    -v "$(pwd)/${INSTALL_DIR}/near:/near" \
+    -p 127.0.0.1:23030:3030 \
+    -p 24567:24567 \
+    nearprotocol/nearcore:${NEAR_VERSION} \
+    /usr/local/bin/neard --home /near run &
+
+  # Wait for nearcore to be ready
+  echo "Waiting for nearcore to be ready..."
+  while ! curl -s -X POST "http://localhost:3030" -H "Content-Type: application/json" -d '{
+    "jsonrpc": "2.0",
+    "method": "status",
+    "params": [],
+    "id": "dontcare"
+  }' > /dev/null; do
+    sleep 1
+  done
+  echo "Nearcore started catching up!"
 }
 
 apply_datalake_config() {
@@ -179,23 +204,12 @@ install() {
 
   if [ "${near_source}" = "nearcore" ]; then
     apply_nearcore_config
+    run_nearcore
   else
     apply_datalake_config
   fi
 
   if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
-    if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-      echo "Downloading snapshot for chain ${chain_id}, block ${latest}"
-      echo "Fetching, this can take some time..."
-      docker run --rm --pull=always \
-        --init \
-        -v "$(pwd)/${INSTALL_DIR}/data/relayer:/data" \
-        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
-        --entrypoint=/bin/ash \
-        rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=relayer DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
-    fi
-
     if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
       echo "Downloading state snapshot ${latest}, block ${latest}"
       echo "Fetching, this can take some time..."
