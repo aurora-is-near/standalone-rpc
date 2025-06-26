@@ -109,10 +109,10 @@ apply_nearcore_config() {
       docker run --rm --pull=always \
         --init \
         -v "$(pwd)/${INSTALL_DIR}/near:/root/.near:rw" \
-        -v "$(pwd)/${src_dir}/bin/download_nearcore.sh:/download_nearcore.sh" \
+        -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
         --entrypoint=/bin/ash \
-        alpine:latest \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache wget zstd tar && chmod +x /download_nearcore.sh && NEAR_NETWORK=${near_network} DATA_PATH=/root/.near/data /download_nearcore.sh & pid=\$! && wait \$pid"
+        rclone/rclone \
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache zstd tar && chmod +x /download_rclone.sh && SERVICE=near NEAR_NETWORK=${near_network} DATA_PATH=/root/.near/data THREADS=${download_workers} /download_rclone.sh & pid=\$! && wait \$pid"
     fi
   fi
 }
