@@ -101,6 +101,19 @@ apply_nearcore_config() {
       mv "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup" && \
       mv "${INSTALL_DIR}/near/config.json.tmp" "${INSTALL_DIR}/near/config.json"
     fi
+    
+    # Download nearcore snapshot if enabled and not already downloaded
+    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/.version" ]; then
+      echo "Downloading nearcore snapshot for ${near_network}..."
+      echo "Fetching, this can take some time..."
+      docker run --rm --pull=always \
+        --init \
+        -v "$(pwd)/${INSTALL_DIR}/near:/root/.near:rw" \
+        -v "$(pwd)/${src_dir}/bin/download_nearcore.sh:/download_nearcore.sh" \
+        --entrypoint=/bin/ash \
+        alpine:latest \
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache wget zstd tar && chmod +x /download_nearcore.sh && NEAR_NETWORK=${near_network} DATA_PATH=/root/.near/data /download_nearcore.sh & pid=\$! && wait \$pid"
+    fi
   fi
 }
 
@@ -259,14 +272,17 @@ usage() {
   printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\n' "-s" "if specified then snapshots are ignored during installation, default downloads and uses snapshots." \
   "NOTE: Ignoring snapshots may cause refiner not to index near chain. This can only be a valid option" \
   "if near source is selected as datalake otherwise refiner will not be sync with near core from scratch."
+  printf ' %s\t\t\t\t%s\n\t\t\t\t%s\n\n' "-N" "if specified then nearcore snapshots are ignored during installation, default downloads and uses nearcore snapshots." \
+  "NOTE: Ignoring nearcore snapshots means the nearcore node will sync from genesis, which can take a very long time."
   printf ' %s\t\t\t\t%s\n\n' "-v" "prints version"
   printf ' %s\t\t\t\t%s\n\n' "-h" "prints usage"
   printf 'Examples\n'
   printf ' %s\t\t-> %s\n\n' "./install.sh -n mainnet -r datalake -s" "use mainnet with near data lake but do not download snapshots"
   printf ' %s\t\t-> %s\n\n' "./install.sh -n silo -f ./silo.conf" "use sile network whose config is defined in silo.conf, near source for indexing is nearcore"
+  printf ' %s\t\t-> %s\n\n' "./install.sh -n mainnet -r nearcore -N" "use mainnet with nearcore but do not download nearcore snapshots"
 }
 
-while getopts ":n:r:m:f:w:svh" opt; do
+while getopts ":n:r:m:f:w:sNvh" opt; do
   case "${opt}" in
     n)
       network="${OPTARG}"
@@ -305,6 +321,9 @@ while getopts ":n:r:m:f:w:svh" opt; do
       ;;
     s)
       use_aurora_snapshot=0
+      ;;
+    N)
+      use_near_snapshot=0
       ;;
     f)
       silo_config_file="${OPTARG}"
