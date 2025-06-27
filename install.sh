@@ -112,7 +112,7 @@ apply_nearcore_config() {
         -v "$(pwd)/${src_dir}/bin/download_rclone.sh:/download_rclone.sh" \
         --entrypoint=/bin/ash \
         rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache zstd tar && chmod +x /download_rclone.sh && SERVICE=near NEAR_NETWORK=${near_network} DATA_PATH=/root/.near/data THREADS=${download_workers} /download_rclone.sh & pid=\$! && wait \$pid"
+        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache zstd tar wget && chmod +x /download_rclone.sh && SERVICE=near NEAR_NETWORK=${near_network} DATA_PATH=/root/.near/data THREADS=${download_workers} /download_rclone.sh & pid=\$! && wait \$pid"
     fi
   fi
 }

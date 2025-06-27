@@ -88,12 +88,11 @@ main() {
   mkdir -p "$DATA_PATH"
   
   if [ "$SERVICE" = "near" ]; then
-    echo "Downloading nearcore snapshot with $THREADS threads"
+    echo "Downloading nearcore snapshot for network: $NEAR_NETWORK"
     
-    # For near service, we can pipe the compressed data directly to decompression tools
+    # For near service, use wget which follows redirects automatically
     echo "Downloading and extracting snapshot in one pass..."
-    local rclone_args=$(get_rclone_args)
-    rclone cat $rclone_args :http:$PREFIX/$LATEST.tar.zst | zstd -d | tar -xf - -C "$DATA_PATH"
+    wget -O - "$HTTP_URL/$PREFIX/$LATEST" | zstd -d --verbose | tar -xf - -C "$DATA_PATH"
     
   else
     echo "Downloading snapshot files..."
