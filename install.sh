@@ -88,6 +88,19 @@ apply_nearcore_config() {
         nearprotocol/nearcore:${NEAR_VERSION} \
         /usr/local/bin/neard --home /root/.near init --chain-id "${near_network}" --download-genesis --download-config rpc
     fi
+
+    echo "Fetching boot nodes..."
+    BOOT_NODES=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
+      "jsonrpc": "2.0",
+      "method": "network_info",
+      "params": [],
+      "id": "dontcare"
+    }' | docker run --rm -i mikefarah/yq:latest eval -r '.result as $r | [$r.active_peers[] | select(.id as $id | $r.known_producers[] | select(.peer_id == $id)) | "\(.id)@\(.addr)"] | join(",")' | paste -sd "," -)
+
+    echo "Updating config with boot nodes, telemetry and gc settings..."
+    docker run --rm -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
+      eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = [] | .gc_num_epochs_to_keep = 15' /data/config.json && \
+    cp "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup"
     
     # Download nearcore snapshot if enabled and not already downloaded
     if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/.version" ]; then
