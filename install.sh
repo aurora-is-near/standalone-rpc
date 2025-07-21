@@ -98,7 +98,7 @@ apply_nearcore_config() {
     }' | docker run --rm -i mikefarah/yq:latest eval -r '.result as $r | [$r.active_peers[] | select(.id as $id | $r.known_producers[] | select(.peer_id == $id)) | "\(.id)@\(.addr)"] | join(",")' | paste -sd "," -)
 
     echo "Updating config with boot nodes, telemetry and gc settings..."
-    docker run --rm -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
+    docker run --rm --user "$(id -u):$(id -g)" -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
       eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = [] | .gc_num_epochs_to_keep = 15' /data/config.json && \
     cp "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup"
     
