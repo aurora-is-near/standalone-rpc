@@ -27,6 +27,13 @@ mkdir -p "$DATA_PATH"
 # Fetch snapshot URL
 L=$(curl -s "https://snapshots.aurora.dev/latest/$CHAIN/direct")
 
+# Check if the URL was successfully fetched and is not empty
+if [ -z "$L" ]; then
+  echo "Error: Failed to fetch snapshot URL for chain $CHAIN (chain_id: $CHAIN_ID)"
+  echo "The curl command returned an empty response"
+  exit 1
+fi
+
 # Download index file
 curl -s "$L/index" > /tmp/idx
 
