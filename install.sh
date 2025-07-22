@@ -90,7 +90,7 @@ apply_nearcore_config() {
     fi
 
     echo "Fetching boot nodes..."
-    BOOT_NODES=$(curl -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
+    BOOT_NODES=$(docker run --rm curlimages/curl:latest -s -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{
       "jsonrpc": "2.0",
       "method": "network_info",
       "params": [],
