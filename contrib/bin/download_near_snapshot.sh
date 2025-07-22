@@ -35,7 +35,15 @@ if [ -z "$L" ]; then
 fi
 
 # Download index file
-curl -s "$L/index" > /tmp/idx
+if ! curl -sf "$L/index" > /tmp/idx; then
+  echo "Error: Failed to download index file from $L/index"
+  exit 1
+fi
+if [ ! -s /tmp/idx ]; then
+  echo "Error: Index file is empty"
+  rm -f /tmp/idx
+  exit 1
+fi
 
 # Run rclone with optimized settings for Aurora snapshots
 echo "Starting rclone download with optimized settings..."
