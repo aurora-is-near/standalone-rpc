@@ -5,7 +5,6 @@ near_postfix="near"
 network="mainnet"
 near_network="mainnet"
 silo_config_file=""
-chain_id="1313161554"
 near_source="nearcore" # nearcore or datalake
 migrate_from=""
 use_aurora_snapshot=1
@@ -98,21 +97,32 @@ apply_nearcore_config() {
     }' | docker run --rm -i mikefarah/yq:latest eval -r '.result as $r | [$r.active_peers[] | select(.id as $id | $r.known_producers[] | select(.peer_id == $id)) | "\(.id)@\(.addr)"] | join(",")' | paste -sd "," -)
 
     echo "Updating config with boot nodes, telemetry and gc settings..."
-    docker run --rm --user "$(id -u):$(id -g)" -v "$(pwd)/${INSTALL_DIR}/near:/data" mikefarah/yq:latest \
-      eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = [] | .gc_num_epochs_to_keep = 15' /data/config.json && \
+    docker run --rm --user "$(id -u):$(id -g)" -v "$(pwd)/${INSTALL_DIR}/near:/data:rw" mikefarah/yq:latest \
+      eval --inplace '.network.boot_nodes = "'"$BOOT_NODES"'" | .telemetry.endpoints = [] | .gc_num_epochs_to_keep = 5' /data/config.json && \
     cp "${INSTALL_DIR}/near/config.json" "${INSTALL_DIR}/near/config.json.backup"
     
     # Download nearcore snapshot if enabled and not already downloaded
-    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/data/.version" ]; then
+    if [ $use_near_snapshot -eq 1 ] && [ ! -f "${INSTALL_DIR}/near/.version" ]; then
       echo "Downloading nearcore snapshot for ${near_network}..."
       echo "Fetching, this can take some time..."
-      docker run --rm --pull=always \
-        --init \
-        -v "$(pwd)/${INSTALL_DIR}/near:/root/.near:rw" \
-        -v "$(pwd)/contrib/bin/download_near_snapshot.sh:/download_near_snapshot.sh" \
-        --entrypoint=/bin/ash \
-        rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_near_snapshot.sh && CHAIN_ID=${chain_id} THREADS=${download_workers} DATA_PATH=/root/.near/data /download_near_snapshot.sh & pid=\$! && wait \$pid"
+              docker run --rm --pull=always \
+          --init \
+          --env NETWORK=${network} \
+          --env SERVICE=nearcore \
+          --env DATA_PATH=/data \
+          --env THREADS=${download_workers} \
+          -v "$(pwd)/${INSTALL_DIR}/near/data:/data:rw" \
+          -v "$(pwd)/contrib/bin/download_snapshot.sh:/download_snapshot.sh" \
+          --entrypoint=/bin/ash \
+          rclone/rclone \
+          -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_snapshot.sh && /download_snapshot.sh & pid=\$! && wait \$pid"
+      
+      # Verify nearcore download completed successfully
+      if [ ! -f "${INSTALL_DIR}/near/data/.version" ]; then
+        echo "Error: Nearcore snapshot download failed or was incomplete"
+        exit 1
+      fi
+      echo "Nearcore snapshot download completed successfully"
     fi
   fi
 }
@@ -178,7 +188,6 @@ install() {
   if [ "${network}" = "silo" ]; then
     apply_silo_config "$silo_config_file"
     near_network="$silo_network"
-    chain_id="$silo_chain_id"
   else
     near_network="$network"
   fi
@@ -190,28 +199,54 @@ install() {
   fi
 
   if [ $use_aurora_snapshot -eq 1 ] || [ "x$migrate_from" != "x" ]; then
-    if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
-      echo "Downloading snapshot for chain ${chain_id}, block ${latest}"
-      echo "Fetching, this can take some time..."
-      docker run --rm --pull=always \
-        --init \
-        -v "$(pwd)/${INSTALL_DIR}/data/relayer:/data" \
-        -v "$(pwd)/contrib/bin/download_rclone.sh:/download_rclone.sh" \
-        --entrypoint=/bin/ash \
-        rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=relayer DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
+    if [ "${network}" = "silo" ]; then
+      echo "Skipping snapshot downloads for silo network (snapshots not available)"
+    else
+      if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
+        echo "Downloading relayer snapshot for ${network}..."
+        echo "Fetching, this can take some time..."
+        docker run --rm --pull=always \
+          --init \
+          --env NETWORK=${network} \
+          --env SERVICE=relayer \
+          --env DATA_PATH=/data \
+          --env THREADS=${download_workers} \
+          -v "$(pwd)/${INSTALL_DIR}/data/relayer:/data:rw" \
+          -v "$(pwd)/contrib/bin/download_snapshot.sh:/download_snapshot.sh" \
+          --entrypoint=/bin/ash \
+          rclone/rclone \
+          -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_snapshot.sh && /download_snapshot.sh & pid=\$! && wait \$pid"
+        
+        # Verify relayer download completed successfully
+        if [ ! -f "${INSTALL_DIR}/data/relayer/.version" ]; then
+          echo "Error: Relayer snapshot download failed or was incomplete"
+          exit 1
+        fi
+        echo "Relayer snapshot download completed successfully"
+      fi
     fi
 
     if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
-      echo "Downloading state snapshot ${latest}, block ${latest}"
+      echo "Downloading refiner snapshot for ${network}..."
       echo "Fetching, this can take some time..."
-      docker run --rm --pull=always \
-        --init \
-        -v "$(pwd)/${INSTALL_DIR}/engine:/data" \
-        -v "$(pwd)/contrib/bin/download_rclone.sh:/download_rclone.sh" \
-        --entrypoint=/bin/ash \
-        rclone/rclone \
-        -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_rclone.sh && CHAIN_ID=${chain_id} SERVICE=refiner DATA_PATH=/data /download_rclone.sh & pid=\$! && wait \$pid"
+              docker run --rm --pull=always \
+          --init \
+          --env NETWORK=${network} \
+          --env SERVICE=refiner \
+          --env DATA_PATH=/data \
+          --env THREADS=${download_workers} \
+          -v "$(pwd)/${INSTALL_DIR}/engine:/data:rw" \
+          -v "$(pwd)/contrib/bin/download_snapshot.sh:/download_snapshot.sh" \
+          --entrypoint=/bin/ash \
+          rclone/rclone \
+          -c "trap 'kill -TERM \$pid; exit 1' INT TERM; apk add --no-cache curl && chmod +x /download_snapshot.sh && /download_snapshot.sh & pid=\$! && wait \$pid"
+      
+      # Verify refiner download completed successfully
+      if [ ! -f "${INSTALL_DIR}/engine/.version" ]; then
+        echo "Error: Refiner snapshot download failed or was incomplete"
+        exit 1
+      fi
+      echo "Refiner snapshot download completed successfully"
     fi
   fi
 
@@ -288,7 +323,6 @@ while getopts ":n:r:m:f:w:sNvh" opt; do
       network="${OPTARG}"
       if [ "${network}" = "testnet" ]; then
         near_postfix="testnet"
-        chain_id="1313161555"
       elif [ "${network}" != "mainnet" ] && [ "${network}" != "silo" ] ; then
         echo "Invalid Value: -${opt} cannot be '${OPTARG}'"
         usage
