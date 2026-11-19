@@ -46,7 +46,7 @@ services:
       static-network:
         ipv4_address: 10.123.47.254
   proxy:
-    image: nearaurora/reverseproxy:latest
+    image: ghcr.io/aurora-is-near/standalone-rpc/nginx:1.30.7
     container_name: srpc2-proxy
     restart: unless-stopped
     init: true
