@@ -35,7 +35,9 @@ endpoint:
     protocolVersion: 0x41
     hashrate: 0
     gasEstimate: 0x6691b7
-    gasPrice: 0x0
+    # 0.07 Gwei, see
+    # https://doc.aurora.dev/blog/create-virtual-chain/#setting-the-gas-price
+    gasPrice: 0x42c1d80
   proxyEndpoints:
     url: "https://mainnet.aurora.dev:443"
     endpoints:
